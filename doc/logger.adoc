@@ -1,0 +1,148 @@
+
+Resources:
+
+    * CPU
+    * memory
+    * storage
+    * network
+
+https://docs.asciidoctor.org/
+
+
+== Architectural PMCs
+https://www.brendangregg.com/blog/2017-05-04/the-pmcs-of-ec2.html
+
+== perf_event_open - how to monitoring multiple events
+https://stackoverflow.com/questions/42088515/perf-event-open-how-to-monitoring-multiple-events
+
+== Perf Events
+https://web.eece.maine.edu/~vweaver/projects/perf_events/index.html
+perf_event_open
+
+== Microsoft try finally
+https://docs.microsoft.com/en-us/cpp/cpp/try-finally-statement
+https://docs.microsoft.com/en-us/cpp/cpp/try-except-statement
+
+== GCC cleanup function
+https://gcc.gnu.org/onlinedocs/gcc-11.2.0/gcc/Common-Variable-Attributes.html#Common-Variable-Attributes
+
+== USE method
+* usability
+* saturation
+* errors
+
+== What is our goal when running the program?
+* debug
+    ** isolating a known defect
+    ** trace through code
+    ** dump key data
+    ** assertions enabled
+* test
+    ** run automated unit tests
+* qa
+    ** confirming correct operation
+    ** logging fatal errors and exceptions
+    ** log errors and warnings
+* profile
+    ** identifying performance bottlenecks
+    ** profile resource usage
+* release
+    ** monitoring a system in production
+    ** monitor system health
+    ** logging fatal errors and exceptions
+
+== API
+
+bg_program
+bg_function
+bg_line
+
+bg_assert() - debug time
+bg_verify() - release time
+
+bg_bytes()
+
+== time to string
+https://stackoverflow.com/questions/48217017/what-is-the-prettiest-way-to-convert-time-point-to-string
+https://en.cppreference.com/w/cpp/utility/to_chars
+https://en.cppreference.com/w/cpp/utility/format
+https://www.zverovich.net/2020/06/13/fast-int-to-string-revisited.html
+https://github.com/fmtlib/fmt
+
+== Types of data
+https://builtin.com/data-science/data-types-statistics
+https://www.questionpro.com/blog/ratio-scale-vs-interval-scale/
+https://www.questionpro.com/blog/nominal-ordinal-interval-ratio/
+
+    * category (could be ordered "01 - elementary school")
+    * interval (temp, time, can be negative)
+    * ratio (height, weight, can never be less than zero)
+
+== CMake
+https://gitlab.com/CLIUtils/modern-cmake/tree/master/examples/extended-project
+https://gitlab.kitware.com/cmake/community/-/wikis/doc/tutorials/How-To-Write-Platform-Checks
+
+== GitHub
+https://www.webfx.com/tools/emoji-cheat-sheet/
+https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
+https://github.com/abhisheknaiidu/awesome-github-profile-readme
+https://shields.io/
+
+== unit testing
+https://libcheck.github.io/check/
+https://www.throwtheswitch.org/unity
+https://cmocka.org/
+
+#if defined(_MSC_VER)
+#ifdef _WIN32
+#if defined(__GNUC__)
+#ifdef __cplusplus
+
+#define START_TEST(__testname)\
+static void __testname ## _fn (int _i CK_ATTRIBUTE_UNUSED);\
+static const TTest __testname ## _ttest = {""# __testname, __testname ## _fn, __FILE__, __LINE__};\
+static const TTest * __testname = & __testname ## _ttest;\
+static void __testname ## _fn (int _i CK_ATTRIBUTE_UNUSED)
+
+== GDPR
+https://sematext.com/blog/gdpr-top-5-logging-best-practices/
+
+** make logging non-blocking
+
+== log aggregators
+https://www.elastic.co/
+https://www.splunk.com/
+https://www.graylog.org/
+
+=== optimize for writing or for reading
+https://www.elastic.co/blog/schema-on-write-vs-schema-on-read
+
+== LikWid - performance counters (like PAPI)
+- does not track an application thread across hardware threads
+https://github.com/RRZE-HPC/likwid
+https://github.com/RRZE-HPC/likwid/wiki/FAQ
+
+== GCC print predefined macros
+gcc -dM -E - < /dev/null
+
+== visualization
+https://www.speedscope.app/
+https://github.com/jlfwong/speedscope#usage
+https://perfetto.dev/
+https://perfetto.dev/docs/instrumentation/tracing-sdk
+
+== terminal colors
+"\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"
+https://en.wikipedia.org/wiki/ANSI_escape_code
+https://chrisyeh96.github.io/2020/03/28/terminal-colors.html
+
+== JSON
+https://jsonlines.org/
+https://hackernoon.com/json-lines-format-76353b4e588d
+https://jsonlines.readthedocs.io/en/latest/
+
+== Linux Epoch
+1970-01-01 00:00:00 +0000 (UTC)
+
+== Linux syslog priorities
+LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, and LOG_DEBUG
