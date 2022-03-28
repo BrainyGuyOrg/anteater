@@ -33,7 +33,7 @@ target_include_directories(bglogger
 )
 
 target_compile_options(bglogger PRIVATE -Werror)
-target_compile_features(bglogger PRIVATE c_std_99)
+target_compile_features(bglogger PRIVATE c_std_11)
 target_link_libraries(bglogger PUBLIC m)
 
 # -------------------------------------------------------------------

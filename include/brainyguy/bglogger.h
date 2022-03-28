@@ -54,9 +54,10 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 #include <time.h>
 
 #if defined(BG_PLATFORM_LINUX)
@@ -308,6 +309,8 @@ void bg_function_destructor(bg_Function* bg_function_variable);
             subsystem, session); \
         code
 #endif
+
+// bg_thread
 
 // bg_line
 

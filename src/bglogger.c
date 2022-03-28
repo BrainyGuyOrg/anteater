@@ -223,6 +223,9 @@ void print_timestamp(char* buffer, const uint16_t buffer_size, const double time
 }
 
 // ------------------------------------------------------------------
+thread_local g_bg_Thread =
+
+// ------------------------------------------------------------------
 void bg_program_constructor(bg_Program* bg_program_variable,
                             const char* file_name, const uint32_t line_number,
                             const char* function_name, const char* function_signature,

@@ -17,6 +17,7 @@
 #include "brainyguy/bglogger.h"
 
 // https://en.wikipedia.org/wiki/Ackermann_function
+// runs in about 9.5 seconds in debug mode for (4, 1)
 uint64_t ackermann(const uint64_t m, const uint64_t n) {
     if (m == 0)   return n+1;
     if (n == 0)   return ackermann(m-1, 1);

@@ -7,7 +7,7 @@ Resources:
     * network
 
 https://docs.asciidoctor.org/
-
+https://github.com/asciidoctor/asciidoctor
 
 == Architectural PMCs
 https://www.brendangregg.com/blog/2017-05-04/the-pmcs-of-ec2.html
@@ -146,3 +146,7 @@ https://jsonlines.readthedocs.io/en/latest/
 
 == Linux syslog priorities
 LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, and LOG_DEBUG
+
+== Extended Date Time Format
+https://www.datafix.com.au/BASHing/2020-02-12.html
+https://www.loc.gov/standards/datetime/
