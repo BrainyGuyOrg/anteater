@@ -16,10 +16,18 @@
 
 #include "brainyguy/bglogger.h"
 
+// https://en.wikipedia.org/wiki/Ackermann_function
+uint64_t ackermann(const uint64_t m, const uint64_t n) {
+    if (m == 0)   return n+1;
+    if (n == 0)   return ackermann(m-1, 1);
+    return ackermann(m - 1, ackermann(m, n-1));
+}
+
 int main(int argc, const char** argv, const char** envp) {
     bg_program(argc, argv, envp, {
 
-
+        const uint64_t result = ackermann(4, 1);
+        assert(result == 65533);
 
     });
     return 0;
