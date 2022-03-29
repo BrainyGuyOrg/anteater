@@ -61,7 +61,19 @@
 #include <time.h>
 
 // ------------------------------------------------------------------------------------------------
-const char* get_program_name();
+enum { BG_ERROR_BUFFER_SIZE = 4096 };
+void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
+                     const char* function_name, const char* function_signature,
+                     const char* message, ...);
+
+#if !defined(BG_BUILD_MODE_OFF)
+    #define bg_internal_error(severity, message, ...) \
+        bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER, \
+                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, \
+                        message, __VA_ARGS__)
+#else
+    #define bg_internal_error(severity, message, ...)   ((void)0)
+#endif
 
 // ------------------------------------------------------------------------------------------------
 // Data Sinks
@@ -133,20 +145,16 @@ typedef struct bg_DataSink_struct {
     bg_Filter*              _filters;
     void*                   _private;
 
-    void (*_close_sink)(bg_DataSink* datasink);
-    void (*_start_record)(bg_DataSink* datasink);
-    void (*_end_record)(bg_DataSink* datasink);
-
-    void (*_add_category)(bg_DataSink* datasink, const char* label, const char* value);
-    void (*_add_interval)(bg_DataSink* datasink, const char* label, double value);
-    void (*_add_ratio)(bg_DataSink* datasink, const char* label, double value);
+    void (*_close_sink)(bg_DataSink* data_sink);
+    // Note: does NOT take ownership of column_datas
+    void (*_log_record)(bg_DataSink* data_sink, bg_ColumnData* column_datas);
 } bg_DataSink;
 
 // ------------------------------------------------------------------------------------------------
 // dest=stdout, stderr, syslog, file
 // options=space-separated list, sink-specific
 // Note: takes ownership of column_infos and filters
-void bg_add_sink(const char* dest, const char* name, const char* options,
+void bg_add_sink(const char* device, const char* name, const char* options,
                  bg_ColumnInfo* column_infos, bg_Filter* filters);
 void bg_delete_sinks();
 // Note: takes ownership of column_datas
@@ -162,35 +170,16 @@ typedef struct {
 } bg_TextDataSink;
 
 // Note: takes ownership of column_infos and filters
-bg_DataSink* bg_new_text_sink(const char* dest, const char* name, const char* options,
+bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* options,
                               bg_ColumnInfo* column_infos, bg_Filter* filters);
 // name=directory name
 // options=csv, json, header, noheader
-void text_close_sink(bg_DataSink* datasink);
-void text_start_record(bg_DataSink* datasink);
-void text_end_record(bg_DataSink* datasink);
-
-void text_add_category(bg_DataSink* datasink, const char* label, const char* value);
-void text_add_interval(bg_DataSink* datasink, const char* label, double value);
-void text_add_ratio(bg_DataSink* datasink, const char* label, double value);
+void text_close_sink(bg_DataSink* data_sink);
+// Note: does NOT take ownership of column_datas
+void text_log_record(bg_DataSink* data_sink, bg_ColumnData* column_datas);
 
 // ------------------------------------------------------------------------------------------------
 // Assertions
-// ------------------------------------------------------------------------------------------------
-enum { BG_ERROR_BUFFER_SIZE = 4096 };
-void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
-                     const char* function_name, const char* function_signature,
-                     const char* message, ...);
-
-#if !defined(BG_BUILD_MODE_OFF)
-    #define bg_internal_error(severity, message, ...) \
-        bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER, \
-                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, \
-                        message, __VA_ARGS__)
-#else
-    #define bg_internal_error(severity, message, ...)   ((void)0)
-#endif
-
 // ------------------------------------------------------------------------------------------------
 void bg_assert_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature);
