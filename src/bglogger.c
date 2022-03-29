@@ -18,18 +18,7 @@
 
 #include <math.h>
 
-// ------------------------------------------------------------------
-const char* g_program_name;
-
-const char* get_program_name() {
-#if defined(BG_PLATFORM_LINUX)
-    return program_invocation_short_name;
-#else
-    return g_program_name;
-#endif
-}
-
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 #define DBL_EPSILON     (2.2204460492503131e-16)
 
 bool approx_equal_double(const double a, const double b) {
@@ -40,12 +29,80 @@ bool approx_equal_double(const double a, const double b) {
     return a == b;
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void get_random_bytes(uint8_t* buffer, const int buffer_size) {
+    assert(RAND_MAX >= 255);   // should always be at least 32767
+    for (int byte = 0; byte < buffer_size; ++byte) {
+        buffer[byte] = (uint8_t)(rand() & 0xff);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+static const char* g_program_path_name;
+static const char* g_program_base_name;
+
+#if defined(BG_PLATFORM_LINUX)
+#define _GNU_SOURCE 1
+#include <syslog.h>
+#include <errno.h>
+extern char *program_invocation_name;
+extern char *program_invocation_short_name;
+#endif
+
+void set_program_name(const char* argv0) {
+#if defined(BG_PLATFORM_LINUX)
+    g_program_path_name = strdup(program_invocation_name);
+    g_program_base_name = strdup(program_invocation_short_name);
+#elif defined(BG_PLATFORM_WINDOWS)
+    g_program_path_name = strdup(argv0);
+
+    char* last_slash    = strrchr(argv0, '/');
+    g_program_base_name = strdup(last_slash ? last_slash+1 : argv0);
+#else
+#error Unrecognized platform
+#endif
+}
+
+// ------------------------------------------------------------------------------------------------
+#if defined(BG_PLATFORM_LINUX) || defined(BG_PLATFORM_BSD)
+#include <unistd.h>
+#endif
+
+uint32_t get_process_id() {
+#if defined(BG_PLATFORM_LINUX) || defined(BG_PLATFORM_BSD)
+    return getpid();
+#elif defined(BG_PLATFORM_WINDOWS)
+#error Windows not supported yet
+#else
+#error Unrecognized platform
+#endif
+}
+
+// ------------------------------------------------------------------------------------------------
+static const char* g_base_log_dir;
+
+void create_base_log_dir() {
+#if defined(BG_PLATFORM_LINUX) || defined(BG_PLATFORM_BSD)
+    char buffer[FILENAME_MAX];
+    uint16_t salt;
+    get_random_bytes((uint8_t*)&salt, sizeof(salt));
+    const int chars_written =
+        sprintf(buffer, "/tmp/%s-%.8x-%.4hx.log", g_program_base_name, get_process_id(), salt);
+    assert(chars_written > 0 && chars_written < FILENAME_MAX);
+    g_base_log_dir = strdup(buffer);
+#elif defined(BG_PLATFORM_WINDOWS)
+#error Windows not supported yet
+#else
+#error Unrecognized platform
+#endif
+}
+
+// ------------------------------------------------------------------------------------------------
 // Data Sinks
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 bg_DataSink* g_data_sinks;
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_add_sink(const char* dest, const char* name, const char* options,
                  bg_ColumnInfo* column_infos, bg_Filter* filters) {
     if (strcmp(dest, "stdout") == 0 ||
@@ -60,12 +117,12 @@ void bg_add_sink(const char* dest, const char* name, const char* options,
     }
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_delete_sinks() {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 bool is_record_filtered(bg_ColumnData* column_datas, bg_Filter* filters) {
     for (bg_Filter* filter = filters; filter != NULL; filter = filter->_next) {
         for (bg_ColumnData* column_data; column_data != NULL; column_data = column_data->_next) {
@@ -76,7 +133,7 @@ bool is_record_filtered(bg_ColumnData* column_datas, bg_Filter* filters) {
     return false;
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_log_record(bg_ColumnData* column_datas) {
     for (bg_DataSink* data_sink = g_data_sinks; data_sink != NULL; data_sink = data_sink->_next) {
         const bool record_filtered = is_record_filtered(column_datas, data_sink->_filters);
@@ -86,8 +143,8 @@ void bg_log_record(bg_ColumnData* column_datas) {
 
 }
 
-// ------------------------------------------------------------------
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void create_temp_file_name(char* buffer, const int buffer_size,
                            const char* path, const char* base_name, const char* extension) {
     const size_t path_len    = strlen(path);
@@ -98,7 +155,7 @@ void create_temp_file_name(char* buffer, const int buffer_size,
     assert(chars_written < buffer_size);
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 bg_DataSink* bg_new_text_sink(const char* dest, const char* name, const char* options,
                               bg_ColumnInfo* column_infos, bg_Filter* filters) {
     bg_DataSink* data_sink = calloc(1, sizeof(bg_DataSink));
@@ -114,7 +171,7 @@ bg_DataSink* bg_new_text_sink(const char* dest, const char* name, const char* op
 
     if (strcmp(dest, "file") == 0) {
         char file_path[FILENAME_MAX];
-        create_temp_file_name(file_path, FILENAME_MAX, name, get_program_name(), ".log");
+        create_temp_file_name(file_path, FILENAME_MAX, name, g_program_base_name, ".log");
         text_data_sink->_file_handle = fopen(file_path, "w");
     }
 
@@ -135,32 +192,32 @@ bg_DataSink* bg_new_text_sink(const char* dest, const char* name, const char* op
     }
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void text_close_sink(bg_DataSink* datasink) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void text_start_record(bg_DataSink* datasink) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void text_end_record(bg_DataSink* datasink) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void text_add_category(bg_DataSink* datasink, const char* label, const char* value) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void text_add_interval(bg_DataSink* datasink, const char* label, double value) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void text_add_ratio(bg_DataSink* datasink, const char* label, double value) {
 
 }
@@ -168,7 +225,7 @@ void text_add_ratio(bg_DataSink* datasink, const char* label, double value) {
 
 
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
                        const char* function_name, const char* function_signature, const char* message, ...) {
     (void)function_signature;
@@ -185,19 +242,19 @@ void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_
     assert(num_chars2 > 0);
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_assert_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_verify_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature) {
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 double get_timestamp_now() {
     struct timespec ts;
     const int base = timespec_get(&ts, TIME_UTC);
@@ -222,16 +279,13 @@ void print_timestamp(char* buffer, const uint16_t buffer_size, const double time
     assert(chars_written < buffer_size);
 }
 
-// ------------------------------------------------------------------
-thread_local g_bg_Thread =
-
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_program_constructor(bg_Program* bg_program_variable,
                             const char* file_name, const uint32_t line_number,
                             const char* function_name, const char* function_signature,
                             const uint16_t argc, const char** argv, const char** envp) {
     bg_program_variable->_record_type           = BG_RECORDTYPE_PROGRAM;
-    bg_program_variable->_ts                    = get_timestamp_now();
+    bg_program_variable->_ts_start              = get_timestamp_now();
     bg_program_variable->_file_name             = file_name;
     bg_program_variable->_line_number           = line_number;
     bg_program_variable->_function_name         = function_name;
@@ -239,17 +293,37 @@ void bg_program_constructor(bg_Program* bg_program_variable,
     bg_program_variable->_argc                  = argc;
     bg_program_variable->_argv                  = argv;
     bg_program_variable->_envp                  = envp;
+
+    srand(time(NULL));   // seed random number generator
+    set_program_name(argv[0]);
+    create_base_log_dir();
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_program_destructor(bg_Program* bg_program_variable) {
     char buffer[256];
-    print_timestamp(buffer, 256, bg_program_variable->_ts);
+    print_timestamp(buffer, 256, bg_program_variable->_ts_start);
     printf("%s\n", buffer);
-    printf("seconds: %g\n", get_timestamp_now() - bg_program_variable->_ts);
+    printf("seconds: %g\n", get_timestamp_now() - bg_program_variable->_ts_start);
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+thread_local bg_Thread g_bg_Thread;
+
+// ------------------------------------------------------------------------------------------------
+void bg_thread_constructor(bg_Thread* bg_program_variable,
+                           const char* file_name, uint32_t line_number,
+                           const char* function_name, const char* function_signature,
+                           const char* subsystem, const char* session) {
+
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_thread_destructor(bg_Thread* bg_program_variable) {
+
+}
+
+// ------------------------------------------------------------------------------------------------
 void bg_function_constructor(bg_Function* bg_function_variable,
                             const char* file_name, uint32_t line_number,
                             const char* function_name, const char* function_signature,
@@ -257,7 +331,7 @@ void bg_function_constructor(bg_Function* bg_function_variable,
 
 }
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_function_destructor(bg_Function* bg_function_variable) {
 
 }

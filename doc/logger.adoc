@@ -32,6 +32,8 @@ https://gcc.gnu.org/onlinedocs/gcc-11.2.0/gcc/Common-Variable-Attributes.html#Co
 * errors
 
 == What is our goal when running the program?
+* off
+    ** fully disabled
 * debug
     ** isolating a known defect
     ** trace through code

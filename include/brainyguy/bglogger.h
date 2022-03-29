@@ -19,9 +19,9 @@
  */
 
 #if !defined(__cplusplus)
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 // Configuration
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 #define BG_FILE_NAME            __FILE__
 #define BG_LINE_NUMBER          __LINE__
 
@@ -47,9 +47,9 @@
     #error Unsupported compiler.
 #endif
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 // Includes
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 #include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -60,21 +60,12 @@
 #include <threads.h>
 #include <time.h>
 
-#if defined(BG_PLATFORM_LINUX)
-#define _GNU_SOURCE 1
-#include <syslog.h>
-#include <errno.h>
-
-extern char *program_invocation_name;
-extern char *program_invocation_short_name;
-#endif
-
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 const char* get_program_name();
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 // Data Sinks
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 typedef enum {
     BG_RECORDTYPE_COLUMNINFO            = 0xDEAD0001,
     BG_RECORDTYPE_COLUMNDATA            = 0xDEAD0002,
@@ -83,10 +74,11 @@ typedef enum {
     BG_RECORDTYPE_TEXTDATASINK          = 0xDEAD0005,
 
     BG_RECORDTYPE_PROGRAM               = 0xDEAD0011,
-    BG_RECORDTYPE_FUNCTION              = 0xDEAD0012
+    BG_RECORDTYPE_THREAD                = 0xDEAD0012,
+    BG_RECORDTYPE_FUNCTION              = 0xDEAD0013
 } bg_RecordType;
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 typedef enum {
     BG_DATATYPE_CATEGORY    = 1,
     BG_DATATYPE_INTERVAL    = 2,
@@ -150,7 +142,7 @@ typedef struct bg_DataSink_struct {
     void (*_add_ratio)(bg_DataSink* datasink, const char* label, double value);
 } bg_DataSink;
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 // dest=stdout, stderr, syslog, file
 // options=space-separated list, sink-specific
 // Note: takes ownership of column_infos and filters
@@ -160,7 +152,7 @@ void bg_delete_sinks();
 // Note: takes ownership of column_datas
 void bg_log_record(bg_ColumnData* column_datas);
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 typedef struct {
     bg_RecordType   _record_type;
     FILE*           _file_handle;
@@ -182,9 +174,9 @@ void text_add_category(bg_DataSink* datasink, const char* label, const char* val
 void text_add_interval(bg_DataSink* datasink, const char* label, double value);
 void text_add_ratio(bg_DataSink* datasink, const char* label, double value);
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 // Assertions
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 enum { BG_ERROR_BUFFER_SIZE = 4096 };
 void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
                      const char* function_name, const char* function_signature,
@@ -199,7 +191,7 @@ void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_
     #define bg_internal_error(severity, message, ...)   ((void)0)
 #endif
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_assert_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature);
 
@@ -215,7 +207,7 @@ void bg_assert_fail(const char* expr, const char* file_name, uint32_t line_numbe
     #define bg_assert(expr)   ((void)0)
 #endif
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void bg_verify_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature);
 
@@ -230,22 +222,24 @@ void bg_verify_fail(const char* expr, const char* file_name, uint32_t line_numbe
     #define bg_verify(expr)   ((void)0)
 #endif
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 // Loggers
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 typedef struct {
     struct timespec ts;
 } bg_TimeStamp;
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 typedef struct bg_Program_struct bg_Program;
 typedef struct bg_Program_struct {
     bg_RecordType   _record_type;
-    double          _ts;
+    double          _ts_start;
+
     const char*     _file_name;
     uint32_t        _line_number;
     const char*     _function_name;
     const char*     _function_signature;
+
     uint16_t        _argc;
     const char**    _argv;
     const char**    _envp;
@@ -258,33 +252,90 @@ void bg_program_constructor(bg_Program* bg_program_variable,
 
 void bg_program_destructor(bg_Program* bg_program_variable);
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
     #define bg_program(argc, argv, envp, code)  ((void)0)
 #elif defined(BG_C_TRY_FINALLY)
-    #define bg_program(argc, argv, envp, code)  ((void)0)
-    #warn No Microsoft C++ support yet
+    #define bg_program(argc, argv, envp, code)                                                      \
+        {                                                                                           \
+            Bg_Program bg_program_variable;                                                         \
+            bg_program_constructor(&bg_program_variable,                                            \
+                BG_FILE_NAME, BG_LINE_NUMBER,                                                       \
+                BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                            \
+                argc, argv, envp);                                                                  \
+            __try { code }                                                                          \
+            __finally { bg_program_destructor(&bg_program_variable); }                              \
+        }
 #elif defined(BG_CLEANUP_ATTRIBUTE)
-    #define bg_program(argc, argv, envp, code) \
-        bg_Program __attribute__(( cleanup(bg_program_destructor) )) bg_program_variable; \
-        bg_program_constructor(&bg_program_variable, \
-            BG_FILE_NAME, BG_LINE_NUMBER, \
-            BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, \
-            argc, argv, envp); \
-        code
+    #define bg_program(argc, argv, envp, code)                                                      \
+        bg_Program __attribute__(( cleanup(bg_program_destructor) )) bg_program_variable;           \
+        bg_program_constructor(&bg_program_variable,                                                \
+            BG_FILE_NAME, BG_LINE_NUMBER,                                                           \
+            BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                                \
+            argc, argv, envp);                                                                      \
+        { code }
 #endif
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+typedef struct bg_Thread_struct bg_Thread;
+typedef struct bg_Thread_struct {
+    bg_RecordType   _record_type;
+
+    double          _ts_start;
+    const char*     _file_name;
+    uint32_t        _line_number;
+    const char*     _function_name;
+    const char*     _function_signature;
+
+    const char*     _subsystem;
+    const char*     _session;
+} bg_Thread;
+
+void bg_thread_constructor(bg_Thread* bg_program_variable,
+                           const char* file_name, uint32_t line_number,
+                           const char* function_name, const char* function_signature,
+                           const char* subsystem, const char* session);
+
+void bg_thread_destructor(bg_Thread* bg_program_variable);
+
+// ------------------------------------------------------------------------------------------------
+#if !defined(BG_BUILD_MODE_PROFILE)
+    #define bg_thread(argc, argv, envp, code)  ((void)0)
+#elif defined(BG_C_TRY_FINALLY)
+    #define bg_thread(argc, argv, envp, code)                                                       \
+        {                                                                                           \
+            bg_Thread bg_thread_variable;                                                           \
+            bg_thread_constructor(&bg_thread_variable,                                              \
+                BG_FILE_NAME, BG_LINE_NUMBER,                                                       \
+                BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                            \
+                subsystem, session);                                                                \
+            __try { code }                                                                          \
+            __finally { bg_thread_destructor(&bg_thread_variable); }                                \
+        }
+#elif defined(BG_CLEANUP_ATTRIBUTE)
+    #define bg_thread(argc, argv, envp, code)                                                       \
+        bg_Thread __attribute__(( cleanup(bg_thread_destructor) )) bg_thread_variable;              \
+        bg_thread_constructor(&bg_thread_variable,                                                  \
+            BG_FILE_NAME, BG_LINE_NUMBER,                                                           \
+            BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                                \
+            subsystem, session);                                                                    \
+        { code }
+#endif
+
+// ------------------------------------------------------------------------------------------------
 typedef struct bg_Function_struct bg_Function;
 typedef struct bg_Function_struct {
     bg_RecordType   _record_type;
     bg_Function*    _next;
 
-    double          _ts;
+    double          _ts_start;
     const char*     _file_name;
     uint32_t        _line_number;
     const char*     _function_name;
     const char*     _function_signature;
+
+    const char*     _subsystem;
+    const char*     _session;
 } bg_Function;
 
 void bg_function_constructor(bg_Function* bg_function_variable,
@@ -294,7 +345,7 @@ void bg_function_constructor(bg_Function* bg_function_variable,
 
 void bg_function_destructor(bg_Function* bg_function_variable);
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
     #define bg_function(subsystem, session, code)  ((void)0)
 #elif defined(BG_C_TRY_FINALLY)
@@ -307,14 +358,12 @@ void bg_function_destructor(bg_Function* bg_function_variable);
             BG_FILE_NAME, BG_LINE_NUMBER, \
             BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, \
             subsystem, session); \
-        code
+        { code }
 #endif
-
-// bg_thread
 
 // bg_line
 
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 #endif // defined(__cplusplus)
 
 #endif // BG_LOGGER_H
