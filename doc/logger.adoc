@@ -154,6 +154,10 @@ LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, and 
 https://www.datafix.com.au/BASHing/2020-02-12.html
 https://www.loc.gov/standards/datetime/
 
+== timestamps
+https://nickb.dev/blog/designing-a-rest-api-unix-time-vs-iso-8601
+https://unix4lyfe.org/time/
+
 == calling functions before main
 http://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc/2390626#2390626
 https://gist.github.com/tenmyo/dde01e838cdaf14c8353fbad03ab9bc8

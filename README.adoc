@@ -10,7 +10,7 @@ A logging, profiling, and testing library for C and C++.
 * Send recorded data to multiple destinations simultaneously
 * Can record data to stdout, stderr, Linux syslog, and files
 * Filter output data per device
-* output format is either CSV or JSON
+* output format is either CSV, space-separated, or JSON
 * profiling function counts are exact (not sampling)
 * data is saved using structure, facilitating further processing
 

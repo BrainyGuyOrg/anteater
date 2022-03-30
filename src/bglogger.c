@@ -19,6 +19,13 @@
 #include <math.h>
 
 // ------------------------------------------------------------------------------------------------
+// Internal Utility functions
+// ------------------------------------------------------------------------------------------------
+enum {
+    BG_ERROR_BUFFER_SIZE = 4096
+};
+
+// ------------------------------------------------------------------------------------------------
 void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
                      const char* function_name, const char* function_signature, const char* message, ...) {
     (void)function_signature;
@@ -28,29 +35,28 @@ void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_
     va_start(args, message);
     const int num_chars1 = vsnprintf(buffer1, BG_ERROR_BUFFER_SIZE, message, args);
     va_end(args);
-    assert(num_chars1 > 0);
+    bg_internal_assert(num_chars1 > 0);
 
     char buffer2[BG_ERROR_BUFFER_SIZE];
     const int num_chars2 = snprintf(buffer2,BG_ERROR_BUFFER_SIZE, "%s: %s(%u): %s: %s",
                                     severity, file_name, line_number, function_name, buffer1);
-    assert(num_chars2 > 0);
+    bg_internal_assert(num_chars2 > 0);
 
     const int status = fputs(buffer2, stderr);
-    assert(status != EOF);
+    bg_internal_assert(status != EOF);
 }
 
 // ------------------------------------------------------------------------------------------------
 void get_random_bytes(uint8_t* buffer, const int buffer_size) {
-    assert(RAND_MAX >= 255);   // should always be at least 32767
+    bg_internal_assert(RAND_MAX >= 255);   // should always be at least 32767
     for (int byte = 0; byte < buffer_size; ++byte) {
         buffer[byte] = (uint8_t)(rand() & 0xff);
     }
 }
 
 // ------------------------------------------------------------------------------------------------
-#define DBL_EPSILON     (2.2204460492503131e-16)
-
 bool approx_equal_double(const double a, const double b) {
+    static const double DBL_EPSILON = 2.2204460492503131e-16;
     const double delta = fabs(a - b);
     if (delta <= DBL_EPSILON)   return true;
     const double relative_error = DBL_EPSILON * fmin(fabs(a), fabs(b));
@@ -62,7 +68,7 @@ bool approx_equal_double(const double a, const double b) {
 double get_timestamp_now() {
     struct timespec ts;
     const int base = timespec_get(&ts, TIME_UTC);
-    assert(base == TIME_UTC);
+    bg_internal_assert(base == TIME_UTC);
     const uint64_t seconds     = ts.tv_sec;
     const uint64_t nanoseconds = ts.tv_nsec;
     return (double)(seconds) + (double)(nanoseconds) / 1000000000UL;
@@ -77,12 +83,14 @@ void print_timestamp(char* buffer, const uint16_t buffer_size, const double time
 
     struct tm utc_time;
     const struct tm* tm_status = gmtime_r(&ts.tv_sec, &utc_time);
-    assert(tm_status != NULL);
+    bg_internal_assert(tm_status != NULL);
     strftime(buffer, buffer_size, "%DT%T", &utc_time);
     const int chars_written = snprintf(&buffer[strlen(buffer)], buffer_size,".%09ldZ", ts.tv_nsec);
-    assert(chars_written < buffer_size);
+    bg_internal_assert(chars_written < buffer_size);
 }
 
+// ------------------------------------------------------------------------------------------------
+// Configuration
 // ------------------------------------------------------------------------------------------------
 static const char* g_program_path_name;
 static const char* g_program_base_name;
@@ -134,7 +142,7 @@ void create_base_log_dir() {
     get_random_bytes((uint8_t*)&salt, sizeof(salt));
     const int chars_written =
         sprintf(buffer, "/tmp/%s-%.8x-%.4hx.log", g_program_base_name, get_process_id(), salt);
-    assert(chars_written > 0 && chars_written < FILENAME_MAX);
+    bg_internal_assert(chars_written > 0 && chars_written < FILENAME_MAX);
     g_base_log_dir = strdup(buffer);
 #elif defined(BG_PLATFORM_WINDOWS)
 #error Windows not supported yet
@@ -211,7 +219,7 @@ void create_temp_file_name(char* buffer, const int buffer_size,
     const uint32_t rand_uint = rand() % 10000;
     const int chars_written = snprintf(buffer, buffer_size, "%s%s%s_%.4u.%s",
                                         path, add_path_sep ? "/" : "", base_name, salt, extension);
-    assert(chars_written < buffer_size);
+    bg_internal_assert(chars_written < buffer_size);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -233,20 +241,28 @@ static void parse_text_device(bg_TextDataSink* text_data_sink, const char* devic
 static void parse_text_options(bg_TextDataSink* text_data_sink, const char* options) {
     if (strstr(options, "csv")) {
         text_data_sink->_is_csv = true;
+    } else if (strstr(options, "spaces")) {
+        text_data_sink->_is_spaces = true;
     } else if (strstr(options, "json")) {
         text_data_sink->_is_json = true;
+    } else {
+        text_data_sink->_is_csv = true;
     }
 
     if (strstr(options, "noheader")) {
         text_data_sink->_use_header = false;
     } else if (strstr(options, "header")) {
         text_data_sink->_use_header = true;
+    } else {
+        text_data_sink->_use_header = false;
     }
 
     if (strstr(options, "nocomments")) {
         text_data_sink->_use_comments = false;
     } else if (strstr(options, "comments")) {
         text_data_sink->_use_comments = true;
+    } else {
+        text_data_sink->_use_comments = false;
     }
 }
 
@@ -254,7 +270,7 @@ static void parse_text_options(bg_TextDataSink* text_data_sink, const char* opti
 bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* options,
                               bg_ColumnInfo* column_infos, bg_Filter* filters) {
     bg_DataSink* data_sink = calloc(1, sizeof(bg_DataSink));
-    assert(data_sink);
+    bg_internal_assert(data_sink);
     data_sink->_record_type         = BG_RECORDTYPE_DATASINK;
     data_sink->_options             = strdup(options);
     data_sink->_column_infos        = column_infos;
@@ -263,7 +279,7 @@ bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* 
     data_sink->_log_record          = text_log_record;
 
     bg_TextDataSink* text_data_sink = calloc(1, sizeof(bg_TextDataSink));
-    assert(text_data_sink);
+    bg_internal_assert(text_data_sink);
     data_sink->_private             = text_data_sink;
     text_data_sink->_record_type    = BG_RECORDTYPE_TEXTDATASINK;
 
@@ -294,13 +310,13 @@ bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* 
 
 // ------------------------------------------------------------------------------------------------
 void text_close_sink(bg_DataSink* data_sink) {
-    assert(data_sink->_record_type == BG_RECORDTYPE_DATASINK);
+    bg_internal_assert(data_sink->_record_type == BG_RECORDTYPE_DATASINK);
     bg_TextDataSink* text_data_sink = (bg_TextDataSink*) data_sink->_private;
-    assert(text_data_sink->_record_type == BG_RECORDTYPE_TEXTDATASINK);
+    bg_internal_assert(text_data_sink->_record_type == BG_RECORDTYPE_TEXTDATASINK);
 
     if (text_data_sink->_file_handle) {
         const int status = fclose(text_data_sink->_file_handle);
-        assert(status == 0);
+        bg_internal_assert(status == 0);
         text_data_sink->_file_handle = NULL;
     }
 }
@@ -397,7 +413,7 @@ static bg_Test* g_bg_test;
 // ------------------------------------------------------------------------------------------------
 void bg_add_test_suite_setup(const char* suite_name, bg_test_pointer test_function) {
     bg_Test* test                   = calloc(1, sizeof(bg_Test));
-    assert(test);
+    bg_internal_assert(test);
     test->_record_type              = BG_RECORDTYPE_TEST;
     test->_is_suite_setup           = true;
     test->_suite_name               = strdup(suite_name);
@@ -410,7 +426,7 @@ void bg_add_test_suite_setup(const char* suite_name, bg_test_pointer test_functi
 // ------------------------------------------------------------------------------------------------
 void bg_add_test(const char* suite_name, const char* test_name, bg_test_pointer test_function) {
     bg_Test* test                   = calloc(1, sizeof(bg_Test));
-    assert(test);
+    bg_internal_assert(test);
     test->_record_type              = BG_RECORDTYPE_TEST;
     test->_is_suite_setup           = false;
     test->_suite_name               = strdup(suite_name);

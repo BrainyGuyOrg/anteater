@@ -64,30 +64,41 @@ extern "C" {
 #include <time.h>
 
 // ------------------------------------------------------------------------------------------------
-enum {
-    BG_ERROR_BUFFER_SIZE = 4096
-};
-
 void bg_print_stderr(const char *severity, const char *file_name, uint32_t line_number,
                      const char *function_name, const char *function_signature,
                      const char *message, ...);
 
-#if !defined(BG_BUILD_MODE_OFF)
-#define bg_internal_error(severity, message, ...) \
-        bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER, \
-                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, \
-                        message, __VA_ARGS__)
+// ------------------------------------------------------------------------------------------------
+#if defined(BG_BUILD_MODE_OFF)
+#define bg_internal_assert(expr)   ((void)0)
 #else
-#define bg_internal_error(severity, message, ...)   ((void)0)
+#define bg_internal_assert(expr)                                                                    \
+        {                                                                                           \
+            if (!(expr))   bg_print_stderr("ASSERTION FAILED",                                      \
+                BG_FILE_NAME, BG_LINE_NUMBER,                                                       \
+                BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                            \
+                "%s", #expr);                                                                       \
+        }
 #endif
 
-#if !defined(BG_BUILD_MODE_OFF)
-#define bg_internal_errno(severity) \
-        bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER, \
-                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, \
-                        "(%d) %s", errno, strerror(errno))
+// ------------------------------------------------------------------------------------------------
+#if defined(BG_BUILD_MODE_OFF)
+#define bg_internal_error(severity, message, ...)   ((void)0)
 #else
+#define bg_internal_error(severity, message, ...)                                                   \
+        bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER,                                     \
+                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                    \
+                        message, __VA_ARGS__)
+#endif
+
+// ------------------------------------------------------------------------------------------------
+#if defined(BG_BUILD_MODE_OFF)
 #define bg_internal_errno(severity)   ((void)0)
+#else
+#define bg_internal_errno(severity)                                                                 \
+        bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER,                                     \
+                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                    \
+                        "(%d) %s", errno, strerror(errno))
 #endif
 
 // ------------------------------------------------------------------------------------------------
@@ -113,19 +124,19 @@ typedef enum {
     BG_DATATYPE_RATIO = 3
 } bg_DataType;
 
-typedef struct bg_VariableInfo_struct bg_VariableInfo;
-typedef struct bg_VariableInfo_struct {
+typedef struct bg_ColumnInfo_struct bg_ColumnInfo;
+typedef struct bg_ColumnInfo_struct {
     bg_RecordType _record_type;
-    bg_VariableInfo *_next;
+    bg_ColumnInfo *_next;
 
     const char *_name;
     bg_DataType _data_type;
 } bg_ColumnInfo;
 
-typedef struct bg_RecordColumn_struct bg_RecordColumn;
-typedef struct bg_RecordColumn_struct {
+typedef struct bg_ColumnData_struct bg_ColumnData;
+typedef struct bg_ColumnData_struct {
     bg_RecordType _record_type;
-    bg_RecordColumn *_next;
+    bg_ColumnData *_next;
 
     const char *_label;
     bg_DataType _data_type;
@@ -189,18 +200,19 @@ typedef struct {
     FILE *_file_handle;
 
     bool _is_csv;
+    bool _is_spaces;
     bool _is_json;
     bool _use_header;
     bool _use_comments;
 } bg_TextDataSink;
 
+// name=directory name
+// options=csv, spaces, or json; header, or noheader; comments, or nocomments
+// #=CSV comment char, //=JSON comment chars
 // Note: takes ownership of column_infos and filters
 bg_DataSink *bg_new_text_sink(const char *device, const char *name, const char *options,
                               bg_ColumnInfo *column_infos, bg_Filter *filters);
 
-// name=directory name
-// options=csv, json, header, noheader, comments, nocomments
-// #=CSV comment char, //=JSON comment chars
 void text_close_sink(bg_DataSink *data_sink);
 
 // Note: does NOT take ownership of column_datas
