@@ -1,3 +1,52 @@
 = bglogger
 
-A logging and profiling library for C and C++.
+A logging, profiling, and testing library for C and C++.
+
+== Features
+
+* Integrated logging, testing, and profiling library
+* C and C++ support
+* Can be completely turned off to have zero runtime overhead
+* Send recorded data to multiple destinations simultaneously
+* Can record data to stdout, stderr, Linux syslog, and files
+* Filter output data per device
+* output format is either CSV or JSON
+* profiling function counts are exact (not sampling)
+* data is saved using structure, facilitating further processing
+
+== Build Modes
+
+.Build Modes
+[cols="1,2"]
+|===
+|Name|Description
+
+|BG_BUILD_MODE_OFF
+|Turn off with zero runtime cost
+
+|BG_BUILD_MODE_DEBUG
+|Turn on tracing and data dumps
+
+|BG_BUILD_MODE_TEST
+|run unit tests
+
+|BG_BUILD_MODE_QA
+|Log all errors and warnings
+
+|BG_BUILD_MODE_PROFILE
+|Time functions and accumulate variables
+
+|BG_BUILD_MODE_RELEASE
+|Log all errors
+|===
+
+== To Do Checklist
+
+* [x] create GitHub project
+* [x] create CMakeLists.txt file
+* [x] set up project organization
+* [x] start defining base macros and functions for Linux
+* [ ] finish baseline profiling support
+* [ ] add Linux performance counters
+* [ ] finish baseline testing support
+* [ ] add unit test suite
