@@ -24,11 +24,15 @@ uint64_t ackermann(const uint64_t m, const uint64_t n) {
     return ackermann(m - 1, ackermann(m, n-1));
 }
 
+bg_test(ackermann, ackermann4_1, {
+    const uint64_t result = ackermann(4, 1);
+    return !(result == 65533);
+})
+
 int main(int argc, const char** argv, const char** envp) {
     bg_program(argc, argv, envp, {
+        bg_add_sink("stderr", "all", "json header comments", NULL, NULL);
 
-        const uint64_t result = ackermann(4, 1);
-        assert(result == 65533);
 
     });
     return 0;

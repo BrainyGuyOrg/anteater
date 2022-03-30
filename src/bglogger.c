@@ -22,17 +22,21 @@
 void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
                      const char* function_name, const char* function_signature, const char* message, ...) {
     (void)function_signature;
-    char buffer[BG_ERROR_BUFFER_SIZE];
+    char buffer1[BG_ERROR_BUFFER_SIZE];
 
     va_list args;
     va_start(args, message);
-    const int num_chars1 = vsnprintf(buffer, BG_ERROR_BUFFER_SIZE, message, args);
+    const int num_chars1 = vsnprintf(buffer1, BG_ERROR_BUFFER_SIZE, message, args);
     va_end(args);
     assert(num_chars1 > 0);
 
-    const int num_chars2 = fprintf(stderr, "%s: %s(%u): %s: %s",
-                                    severity, file_name, line_number, function_name, buffer);
+    char buffer2[BG_ERROR_BUFFER_SIZE];
+    const int num_chars2 = snprintf(buffer2,BG_ERROR_BUFFER_SIZE, "%s: %s(%u): %s: %s",
+                                    severity, file_name, line_number, function_name, buffer1);
     assert(num_chars2 > 0);
+
+    const int status = fputs(buffer2, stderr);
+    assert(status != EOF);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -161,7 +165,17 @@ void bg_add_sink(const char* device, const char* name, const char* options,
 
 // ------------------------------------------------------------------------------------------------
 void bg_delete_sinks() {
+    bg_DataSink* data_sink_last = NULL;
+    bg_DataSink* data_sink      = g_data_sinks;
 
+    while (data_sink != NULL) {
+        data_sink->_close_sink(data_sink);
+        data_sink_last = data_sink;
+        data_sink = data_sink->_next;
+        free(data_sink_last);
+    }
+
+    g_data_sinks = NULL;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -201,6 +215,42 @@ void create_temp_file_name(char* buffer, const int buffer_size,
 }
 
 // ------------------------------------------------------------------------------------------------
+static void parse_text_device(bg_TextDataSink* text_data_sink, const char* device) {
+    if (strcmp(device, "stderr") == 0) {
+        text_data_sink->_is_stderr = true;
+    } else if (strcmp(device, "stdout") == 0) {
+        text_data_sink->_is_stdout = true;
+    } else if (strcmp(device, "syslog") == 0) {
+        text_data_sink->_is_syslog = true;
+    } else if (strcmp(device, "file") == 0) {
+        text_data_sink->_is_file = true;
+    } else {
+        bg_internal_error("FATAL", "invalid text device: %s", device);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+static void parse_text_options(bg_TextDataSink* text_data_sink, const char* options) {
+    if (strstr(options, "csv")) {
+        text_data_sink->_is_csv = true;
+    } else if (strstr(options, "json")) {
+        text_data_sink->_is_json = true;
+    }
+
+    if (strstr(options, "noheader")) {
+        text_data_sink->_use_header = false;
+    } else if (strstr(options, "header")) {
+        text_data_sink->_use_header = true;
+    }
+
+    if (strstr(options, "nocomments")) {
+        text_data_sink->_use_comments = false;
+    } else if (strstr(options, "comments")) {
+        text_data_sink->_use_comments = true;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* options,
                               bg_ColumnInfo* column_infos, bg_Filter* filters) {
     bg_DataSink* data_sink = calloc(1, sizeof(bg_DataSink));
@@ -217,7 +267,10 @@ bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* 
     data_sink->_private             = text_data_sink;
     text_data_sink->_record_type    = BG_RECORDTYPE_TEXTDATASINK;
 
-    if (strcmp(device, "file") == 0) {
+    parse_text_device(text_data_sink, device);
+    parse_text_options(text_data_sink, options);
+
+    if (text_data_sink->_is_file) {
         char file_path[FILENAME_MAX];
         create_temp_file_name(file_path, FILENAME_MAX,
                               g_base_log_dir, g_program_base_name, ".log");
@@ -225,18 +278,6 @@ bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* 
         if (text_data_sink->_file_handle == NULL) {
             bg_internal_error("ERROR", "cannot open for writing: %s", file_path);
         }
-    }
-
-    if (strstr(options, "csv")) {
-        text_data_sink->_is_csv = true;
-    } else if (strstr(options, "json")) {
-        text_data_sink->_is_json = true;
-    }
-
-    if (strstr(options, "noheader")) {
-        text_data_sink->_use_header = false;
-    } else if (strstr(options, "header")) {
-        text_data_sink->_use_header = true;
     }
 
     if (text_data_sink->_use_header) {
@@ -305,9 +346,7 @@ void bg_program_constructor(bg_Program* bg_program_variable,
 
 // ------------------------------------------------------------------------------------------------
 void bg_program_destructor(bg_Program* bg_program_variable) {
-    for (bg_DataSink* data_sink = g_data_sinks; data_sink != NULL; data_sink = data_sink->_next) {
-        data_sink->_close_sink(data_sink);
-    }
+    bg_delete_sinks();
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -337,4 +376,67 @@ void bg_function_constructor(bg_Function* bg_function_variable,
 // ------------------------------------------------------------------------------------------------
 void bg_function_destructor(bg_Function* bg_function_variable) {
 
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_numerical_constructor(bg_Numerical* bg_numerical_variable,
+                              const char* file_name, uint32_t line_number,
+                              const char* function_name, const char* function_signature,
+                              bool is_ratio, const char* label, const double value) {
+
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_numerical_destructor(bg_Numerical* bg_numerical_variable) {
+
+}
+
+// ------------------------------------------------------------------------------------------------
+static bg_Test* g_bg_test;
+
+// ------------------------------------------------------------------------------------------------
+void bg_add_test_suite_setup(const char* suite_name, bg_test_pointer test_function) {
+    bg_Test* test                   = calloc(1, sizeof(bg_Test));
+    assert(test);
+    test->_record_type              = BG_RECORDTYPE_TEST;
+    test->_is_suite_setup           = true;
+    test->_suite_name               = strdup(suite_name);
+    test->_test_function            = test_function;
+
+    test->_next                     = g_bg_test;
+    g_bg_test                       = test;
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_add_test(const char* suite_name, const char* test_name, bg_test_pointer test_function) {
+    bg_Test* test                   = calloc(1, sizeof(bg_Test));
+    assert(test);
+    test->_record_type              = BG_RECORDTYPE_TEST;
+    test->_is_suite_setup           = false;
+    test->_suite_name               = strdup(suite_name);
+    test->_test_name               = strdup(test_name);
+    test->_test_function            = test_function;
+
+    test->_next                     = g_bg_test;
+    g_bg_test                       = test;
+}
+
+// ------------------------------------------------------------------------------------------------
+int bg_run_test(const char* suite_name, const char* test_name) {
+    for (bg_Test* test = g_bg_test; test != NULL; test = test->_next) {
+        if (test->_is_suite_setup && strcmp(test->_suite_name, suite_name) == 0) {
+            test->_test_function();
+            break;
+        }
+    }
+
+    for (bg_Test* test = g_bg_test; test != NULL; test = test->_next) {
+        if (!test->_is_suite_setup &&
+            strcmp(test->_suite_name, suite_name) == 0 && strcmp(test->_test_name, test_name) == 0) {
+            return test->_test_function();
+        }
+    }
+
+    bg_internal_error("ERROR", "suite %s: test not found: %s", suite_name, test_name);
+    return 1; // test not found - signal failure
 }
