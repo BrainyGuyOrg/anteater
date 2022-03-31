@@ -40,6 +40,51 @@ A logging, profiling, and testing library for C and C++.
 |Log all errors
 |===
 
+== Profiling Data Schema
+
+.Profiling Data Schema
+[cols="1,1,3"]
+|===
+|Label|Data Type|Description
+
+|Timestamp
+|interval
+|ISO-8601
+
+|Timestamp_sec
+|interval
+|Linux time, seconds
+
+|ProcessId
+|nominal
+|integer from system
+
+|ThreadId
+|nominal
+|integer from system
+
+|FileName
+|nominal
+|path and file name
+
+|LineNumber
+|nominal
+|integer
+
+|FunctionName
+|nominal
+|bare function name
+
+|FunctionSignature
+|nominal
+|function name and parameters
+
+|RealTime
+|ratio
+|seconds
+
+|===
+
 == To Do Checklist
 
 * [x] create GitHub project
@@ -50,3 +95,4 @@ A logging, profiling, and testing library for C and C++.
 * [ ] add Linux performance counters
 * [ ] finish baseline testing support
 * [ ] add unit test suite
+* [ ] add C++ wrapper

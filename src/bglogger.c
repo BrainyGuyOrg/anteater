@@ -18,12 +18,34 @@
 
 #include <math.h>
 
+#if defined(BG_PLATFORM_LINUX)
+#include <syslog.h>
+#endif
+
 // ------------------------------------------------------------------------------------------------
 // Internal Utility functions
 // ------------------------------------------------------------------------------------------------
 enum {
     BG_ERROR_BUFFER_SIZE = 4096
 };
+
+// ------------------------------------------------------------------------------------------------
+int min_int(const int a, const int b) {
+    return (a < b) ? a : b;
+}
+
+int max_int(const int a, const int b) {
+    return (a > b) ? a : b;
+}
+
+// ------------------------------------------------------------------------------------------------
+size_t min_size(const size_t a, const size_t b) {
+    return (a < b) ? a : b;
+}
+
+size_t max_size(const size_t a, const size_t b) {
+    return (a > b) ? a : b;
+}
 
 // ------------------------------------------------------------------------------------------------
 void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_number,
@@ -35,20 +57,20 @@ void bg_print_stderr(const char* severity, const char* file_name, uint32_t line_
     va_start(args, message);
     const int num_chars1 = vsnprintf(buffer1, BG_ERROR_BUFFER_SIZE, message, args);
     va_end(args);
-    bg_internal_assert(num_chars1 > 0);
+    bg_internal_verify(num_chars1 > 0);
 
     char buffer2[BG_ERROR_BUFFER_SIZE];
     const int num_chars2 = snprintf(buffer2,BG_ERROR_BUFFER_SIZE, "%s: %s(%u): %s: %s",
                                     severity, file_name, line_number, function_name, buffer1);
-    bg_internal_assert(num_chars2 > 0);
+    bg_internal_verify(num_chars2 > 0);
 
     const int status = fputs(buffer2, stderr);
-    bg_internal_assert(status != EOF);
+    bg_internal_verify(status != EOF);
 }
 
 // ------------------------------------------------------------------------------------------------
 void get_random_bytes(uint8_t* buffer, const int buffer_size) {
-    bg_internal_assert(RAND_MAX >= 255);   // should always be at least 32767
+    bg_internal_verify(RAND_MAX >= 255);   // should always be at least 32767
     for (int byte = 0; byte < buffer_size; ++byte) {
         buffer[byte] = (uint8_t)(rand() & 0xff);
     }
@@ -68,25 +90,82 @@ bool approx_equal_double(const double a, const double b) {
 double get_timestamp_now() {
     struct timespec ts;
     const int base = timespec_get(&ts, TIME_UTC);
-    bg_internal_assert(base == TIME_UTC);
+    bg_internal_verify(base == TIME_UTC);
     const uint64_t seconds     = ts.tv_sec;
     const uint64_t nanoseconds = ts.tv_nsec;
     return (double)(seconds) + (double)(nanoseconds) / 1000000000UL;
 }
 
-void print_timestamp(char* buffer, const uint16_t buffer_size, const double timestamp) {
-    struct timespec ts;
+// ------------------------------------------------------------------------------------------------
+int print_timestamp(char* buffer, const size_t buffer_size, const double timestamp) {
     double int_dbl;
     const double frac_dbl = modf(timestamp, &int_dbl);
+    struct timespec ts;
     ts.tv_sec  = (int64_t)lround(timestamp);
     ts.tv_nsec = (int64_t)lround(frac_dbl * 1000000000.0);
 
     struct tm utc_time;
     const struct tm* tm_status = gmtime_r(&ts.tv_sec, &utc_time);
-    bg_internal_assert(tm_status != NULL);
+    bg_internal_verify(tm_status != NULL);
     strftime(buffer, buffer_size, "%DT%T", &utc_time);
     const int chars_written = snprintf(&buffer[strlen(buffer)], buffer_size,".%09ldZ", ts.tv_nsec);
-    bg_internal_assert(chars_written < buffer_size);
+    bg_internal_verify(chars_written > 0);
+    return chars_written;
+}
+
+// ------------------------------------------------------------------------------------------------
+// returns the number of characters written
+int print_column(char* buffer, const size_t buffer_size,
+                    bg_ColumnInfo* column_info, bg_ColumnData* column_data,
+                    const bool use_quotes) {
+    switch (column_info->_data_type) {
+        case BG_DATATYPE_CATEGORICAL:
+        case BG_DATATYPE_ORDINAL:
+        case BG_DATATYPE_NOMINAL: {
+            const int chars_written = snprintf(buffer, buffer_size, (use_quotes ? "\"%s\"" : "%s"),
+                                               column_data->_string_value);
+            bg_internal_verify(chars_written > 0);
+            return chars_written;
+        }
+
+        case BG_DATATYPE_ORDINAL_BOOL: {
+            const int chars_written = snprintf(buffer, buffer_size, "%s",
+                                               column_data->_string_value);
+            bg_internal_verify(chars_written > 0);
+            return chars_written;
+        }
+
+        case BG_DATATYPE_NUMERICAL:
+        case BG_DATATYPE_INTERVAL:
+        case BG_DATATYPE_RATIO: {
+            const int chars_written = snprintf(buffer, buffer_size, "%g", column_data->_double_value);
+            bg_internal_verify(chars_written > 0);
+            return chars_written;
+        }
+
+        case BG_DATATYPE_RATIO_CURRENCY: {
+            const int chars_written = snprintf(buffer, buffer_size, "%.2f", column_data->_double_value);
+            bg_internal_verify(chars_written > 0);
+            return chars_written;
+        }
+
+        case BG_DATATYPE_INTERVAL_TIMESTAMP: {
+            const int chars_written = print_timestamp(buffer, buffer_size, column_data->_double_value);
+            bg_internal_verify(chars_written > 0);
+            return chars_written;
+        }
+
+        case BG_DATATYPE_RATIO_COUNT: {
+            const uint64_t count_value = llround(column_data->_double_value);
+            const int chars_written = snprintf(buffer, buffer_size,
+                                               "%lu", count_value);
+            bg_internal_verify(chars_written > 0);
+            return chars_written;
+        }
+
+        default:
+            bg_internal_error("ERROR", "bad data type: %d", column_info->_data_type);
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -142,7 +221,7 @@ void create_base_log_dir() {
     get_random_bytes((uint8_t*)&salt, sizeof(salt));
     const int chars_written =
         sprintf(buffer, "/tmp/%s-%.8x-%.4hx.log", g_program_base_name, get_process_id(), salt);
-    bg_internal_assert(chars_written > 0 && chars_written < FILENAME_MAX);
+    bg_internal_verify(chars_written > 0 && chars_written < FILENAME_MAX);
     g_base_log_dir = strdup(buffer);
 #elif defined(BG_PLATFORM_WINDOWS)
 #error Windows not supported yet
@@ -159,11 +238,18 @@ bg_DataSink* g_data_sinks;
 // ------------------------------------------------------------------------------------------------
 void bg_add_sink(const char* device, const char* name, const char* options,
                  bg_ColumnInfo* column_infos, bg_Filter* filters) {
+    bg_DataSink* data_sink = calloc(1, sizeof(bg_DataSink));
+    bg_internal_verify(data_sink);
+    data_sink->_record_type         = BG_RECORDTYPE_DATASINK;
+    data_sink->_options             = strdup(options);
+    data_sink->_column_infos        = column_infos;
+    data_sink->_filters             = filters;
+
     if (strcmp(device, "stdout") == 0 ||
         strcmp(device, "stderr") == 0 ||
         strcmp(device, "syslog") == 0 ||
         strcmp(device, "file")   == 0) {
-        bg_DataSink* data_sink  = bg_new_text_sink(device, name, options, column_infos, filters);
+        bg_new_text_sink(data_sink, device, name, options, column_infos, filters);
         data_sink->_next        = g_data_sinks;
         g_data_sinks            = data_sink;
     } else {
@@ -172,12 +258,46 @@ void bg_add_sink(const char* device, const char* name, const char* options,
 }
 
 // ------------------------------------------------------------------------------------------------
+void delete_column_infos(bg_ColumnInfo *column_infos) {
+    while (column_infos) {
+        bg_internal_verify(column_infos->_record_type == BG_RECORDTYPE_COLUMNINFO);
+        bg_ColumnInfo *next_column_infos = column_infos->_next;
+        free((void*)column_infos->_label);
+        free((void*)column_infos);
+        column_infos = next_column_infos;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+void delete_filters(bg_Filter *filters) {
+    while (filters) {
+        bg_internal_verify(filters->_record_type == BG_RECORDTYPE_FILTER);
+        bg_Filter* next_filters = filters->_next;
+        free((void*)filters->_label);
+        free((void*)filters->_category_value);
+        free((void*)filters);
+        filters = next_filters;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+void delete_sink(bg_DataSink* data_sink) {
+    bg_internal_verify(data_sink->_record_type == BG_RECORDTYPE_DATASINK);
+    data_sink->_close_sink(data_sink);
+    free(data_sink->_device_data);
+    free((void*)data_sink->_options);
+    delete_column_infos(data_sink->_column_infos);
+    delete_filters(data_sink->_filters);
+}
+
+// ------------------------------------------------------------------------------------------------
 void bg_delete_sinks() {
     bg_DataSink* data_sink_last = NULL;
     bg_DataSink* data_sink      = g_data_sinks;
 
     while (data_sink != NULL) {
-        data_sink->_close_sink(data_sink);
+        delete_sink(data_sink);
+
         data_sink_last = data_sink;
         data_sink = data_sink->_next;
         free(data_sink_last);
@@ -202,9 +322,8 @@ void bg_log_record(bg_ColumnData* column_datas) {
     for (bg_DataSink* data_sink = g_data_sinks; data_sink != NULL; data_sink = data_sink->_next) {
         const bool record_filtered = is_record_filtered(column_datas, data_sink->_filters);
         if (record_filtered)   continue;
-
+        (*data_sink->_log_record)(data_sink, column_datas);
     }
-
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -219,7 +338,7 @@ void create_temp_file_name(char* buffer, const int buffer_size,
     const uint32_t rand_uint = rand() % 10000;
     const int chars_written = snprintf(buffer, buffer_size, "%s%s%s_%.4u.%s",
                                         path, add_path_sep ? "/" : "", base_name, salt, extension);
-    bg_internal_assert(chars_written < buffer_size);
+    bg_internal_verify(chars_written < buffer_size);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -264,23 +383,25 @@ static void parse_text_options(bg_TextDataSink* text_data_sink, const char* opti
     } else {
         text_data_sink->_use_comments = false;
     }
+
+    if (strstr(options, "noquotes")) {
+        text_data_sink->_use_quotes = false;
+    } else if (strstr(options, "quotes")) {
+        text_data_sink->_use_quotes = true;
+    } else {
+        text_data_sink->_use_quotes = false;
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
-bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* options,
-                              bg_ColumnInfo* column_infos, bg_Filter* filters) {
-    bg_DataSink* data_sink = calloc(1, sizeof(bg_DataSink));
-    bg_internal_assert(data_sink);
-    data_sink->_record_type         = BG_RECORDTYPE_DATASINK;
-    data_sink->_options             = strdup(options);
-    data_sink->_column_infos        = column_infos;
-    data_sink->_filters             = filters;
+void bg_new_text_sink(bg_DataSink* data_sink, const char* device, const char* name, const char* options,
+                      bg_ColumnInfo* column_infos, bg_Filter* filters) {
     data_sink->_close_sink          = text_close_sink;
     data_sink->_log_record          = text_log_record;
 
     bg_TextDataSink* text_data_sink = calloc(1, sizeof(bg_TextDataSink));
-    bg_internal_assert(text_data_sink);
-    data_sink->_private             = text_data_sink;
+    bg_internal_verify(text_data_sink);
+    data_sink->_device_data         = text_data_sink;
     text_data_sink->_record_type    = BG_RECORDTYPE_TEXTDATASINK;
 
     parse_text_device(text_data_sink, device);
@@ -294,6 +415,10 @@ bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* 
         if (text_data_sink->_file_handle == NULL) {
             bg_internal_error("ERROR", "cannot open for writing: %s", file_path);
         }
+    } else if (text_data_sink->_is_stdout) {
+        text_data_sink->_file_handle = stdout;
+    } else if (text_data_sink->_is_stderr) {
+        text_data_sink->_file_handle = stderr;
     }
 
     if (text_data_sink->_use_header) {
@@ -310,41 +435,157 @@ bg_DataSink* bg_new_text_sink(const char* device, const char* name, const char* 
 
 // ------------------------------------------------------------------------------------------------
 void text_close_sink(bg_DataSink* data_sink) {
-    bg_internal_assert(data_sink->_record_type == BG_RECORDTYPE_DATASINK);
-    bg_TextDataSink* text_data_sink = (bg_TextDataSink*) data_sink->_private;
-    bg_internal_assert(text_data_sink->_record_type == BG_RECORDTYPE_TEXTDATASINK);
+    bg_internal_verify(data_sink->_record_type == BG_RECORDTYPE_DATASINK);
+    bg_TextDataSink* text_data_sink = (bg_TextDataSink*) data_sink->_device_data;
+    bg_internal_verify(text_data_sink->_record_type == BG_RECORDTYPE_TEXTDATASINK);
 
     if (text_data_sink->_file_handle) {
         const int status = fclose(text_data_sink->_file_handle);
-        bg_internal_assert(status == 0);
+        bg_internal_verify(status == 0);
         text_data_sink->_file_handle = NULL;
     }
 }
 
 // ------------------------------------------------------------------------------------------------
-// Note: does NOT take ownership of column_datas
-void text_log_record(bg_DataSink* data_sink, bg_ColumnData* column_datas) {
+enum {
+    BG_TEXT_RECORD_BUFFER_SIZE = 65536   // 64KB
+};
 
+// ------------------------------------------------------------------------------------------------
+void text_print_string(bg_TextDataSink* text_data_sink, const char* buffer, int buffer_chars) {
+    if (text_data_sink->_is_syslog) {
+#if defined(BG_PLATFORM_LINUX)
+        syslog(LOG_USER|LOG_NOTICE, "%s", buffer);
+#endif
+    } else {
+        const size_t chars_written = fwrite(buffer, sizeof(char), buffer_chars, text_data_sink->_file_handle);
+        bg_internal_verify(chars_written > 0);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Note: does NOT take ownership of column_datas
+// TODO: create hash table over column data labels
+void text_log_record(bg_DataSink* data_sink, bg_ColumnData* column_datas) {
+    bg_TextDataSink* text_data_sink = (bg_TextDataSink*)data_sink->_device_data;
+    bg_internal_verify(text_data_sink->_record_type == BG_RECORDTYPE_TEXTDATASINK);
+
+    char buffer[BG_TEXT_RECORD_BUFFER_SIZE];
+    int buffer_chars = 0;
+    bool first_column = true;
+
+    for (bg_ColumnInfo *column_info = data_sink->_column_infos;
+         column_info != NULL;
+         column_info = column_info->_next) {
+        for (bg_ColumnData *column_data = column_datas;
+             column_data != NULL;
+             column_data = column_data->_next) {
+            if (strcmp(column_info->_label, column_data->_label) == 0) {
+                if (!first_column) {
+                    buffer[buffer_chars++] = text_data_sink->_is_csv ? ',' : ' ';
+                } else {
+                    first_column = false;
+                }
+
+                const int chars_written =
+                        print_column(&buffer[buffer_chars], BG_TEXT_RECORD_BUFFER_SIZE - buffer_chars,
+                                     column_info, column_data, text_data_sink->_use_quotes);
+                buffer_chars += chars_written;
+                bg_internal_verify(buffer_chars < BG_TEXT_RECORD_BUFFER_SIZE);
+                break;
+            }
+        }
+    }
+
+    if (buffer_chars) {
+        buffer[buffer_chars++] = '\n';
+        buffer[buffer_chars]   = '\0';
+        text_print_string(text_data_sink, buffer, buffer_chars);
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 void bg_assert_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature) {
-
+    // TODO
 }
 
 // ------------------------------------------------------------------------------------------------
 void bg_verify_fail(const char* expr, const char* file_name, uint32_t line_number,
                     const char* function_name, const char* function_signature) {
+    // TODO
+}
 
+// ------------------------------------------------------------------------------------------------
+typedef struct bg_ColumnInfoStatic_struct bg_ColumnInfoStatic;
+typedef struct bg_ColumnInfoStatic_struct {
+    const char *_label;
+    bg_DataType _data_type;
+} bg_ColumnInfoStatic;
+
+static const bg_ColumnInfoStatic constructor_column_info[] = {
+    {"timestamp", BG_DATATYPE_INTERVAL_TIMESTAMP},
+    {"duration", BG_DATATYPE_RATIO},
+
+    { NULL, BG_DATATYPE_NONE}
+};
+
+// ------------------------------------------------------------------------------------------------
+bg_ColumnInfo* create_column_infos(const bg_ColumnInfoStatic column_info_statics[]) {
+    bg_ColumnInfo* column_info_head = NULL;
+    bg_ColumnInfo* column_info_tail = NULL;
+
+    while (column_info_statics) {
+        bg_ColumnInfo* column_info = calloc(1, sizeof(bg_ColumnInfo));
+        bg_internal_verify(column_info);
+        column_info->_record_type = BG_RECORDTYPE_COLUMNINFO;
+        column_info->_label = strdup(column_info_statics->_label);
+        column_info->_data_type = column_info_statics->_data_type;
+        column_info_statics++;
+
+        if (column_info_head == NULL) {
+            column_info_head = column_info_tail = column_info;
+        } else {
+            column_info_tail->_next = column_info;
+            column_info_tail = column_info;
+        }
+    }
+
+    return column_info_head;
+}
+
+// ------------------------------------------------------------------------------------------------
+bg_ColumnData* add_column_data_double(bg_ColumnData* previous_column_data, const char* label, const double value) {
+    bg_ColumnData* column_data = calloc(1, sizeof(bg_ColumnData));
+    bg_internal_verify(column_data);
+    column_data->_record_type = BG_RECORDTYPE_COLUMNDATA;
+    column_data->_label = strdup(label);
+    column_data->_double_value = value;
+    if (previous_column_data) {
+        previous_column_data->_next = column_data;
+    }
+    return column_data;
+}
+
+// ------------------------------------------------------------------------------------------------
+bg_ColumnData* add_column_data_string(bg_ColumnData* previous_column_data, const char* label, const char* value) {
+    bg_ColumnData* column_data = calloc(1, sizeof(bg_ColumnData));
+    bg_internal_verify(column_data);
+    column_data->_record_type = BG_RECORDTYPE_COLUMNDATA;
+    column_data->_label = strdup(label);
+    column_data->_string_value = strdup(value);
+    if (previous_column_data) {
+        previous_column_data->_next = column_data;
+    }
+    return column_data;
 }
 
 // ------------------------------------------------------------------------------------------------
 void bg_program_constructor(bg_Program* bg_program_variable,
                             const char* file_name, const uint32_t line_number,
                             const char* function_name, const char* function_signature,
-                            const uint16_t argc, const char** argv, const char** envp) {
+                            const int argc, const char** argv, const char** envp) {
     bg_program_variable->_record_type           = BG_RECORDTYPE_PROGRAM;
     bg_program_variable->_ts_start              = get_timestamp_now();
     bg_program_variable->_file_name             = file_name;
@@ -362,6 +603,9 @@ void bg_program_constructor(bg_Program* bg_program_variable,
 
 // ------------------------------------------------------------------------------------------------
 void bg_program_destructor(bg_Program* bg_program_variable) {
+    // TODO - log program info
+
+
     bg_delete_sinks();
 }
 
@@ -373,12 +617,12 @@ void bg_thread_constructor(bg_Thread* bg_program_variable,
                            const char* file_name, uint32_t line_number,
                            const char* function_name, const char* function_signature,
                            const char* subsystem, const char* session) {
-
+     // TODO
 }
 
 // ------------------------------------------------------------------------------------------------
 void bg_thread_destructor(bg_Thread* bg_program_variable) {
-
+     // TODO
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -386,12 +630,12 @@ void bg_function_constructor(bg_Function* bg_function_variable,
                             const char* file_name, uint32_t line_number,
                             const char* function_name, const char* function_signature,
                             const char* subsystem, const char* session) {
-
+     // TODO
 }
 
 // ------------------------------------------------------------------------------------------------
 void bg_function_destructor(bg_Function* bg_function_variable) {
-
+     // TODO
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -399,21 +643,23 @@ void bg_numerical_constructor(bg_Numerical* bg_numerical_variable,
                               const char* file_name, uint32_t line_number,
                               const char* function_name, const char* function_signature,
                               bool is_ratio, const char* label, const double value) {
-
+     // TODO
 }
 
 // ------------------------------------------------------------------------------------------------
 void bg_numerical_destructor(bg_Numerical* bg_numerical_variable) {
-
+     // TODO
 }
 
+// ------------------------------------------------------------------------------------------------
+// Testing
 // ------------------------------------------------------------------------------------------------
 static bg_Test* g_bg_test;
 
 // ------------------------------------------------------------------------------------------------
 void bg_add_test_suite_setup(const char* suite_name, bg_test_pointer test_function) {
     bg_Test* test                   = calloc(1, sizeof(bg_Test));
-    bg_internal_assert(test);
+    bg_internal_verify(test);
     test->_record_type              = BG_RECORDTYPE_TEST;
     test->_is_suite_setup           = true;
     test->_suite_name               = strdup(suite_name);
@@ -426,7 +672,7 @@ void bg_add_test_suite_setup(const char* suite_name, bg_test_pointer test_functi
 // ------------------------------------------------------------------------------------------------
 void bg_add_test(const char* suite_name, const char* test_name, bg_test_pointer test_function) {
     bg_Test* test                   = calloc(1, sizeof(bg_Test));
-    bg_internal_assert(test);
+    bg_internal_verify(test);
     test->_record_type              = BG_RECORDTYPE_TEST;
     test->_is_suite_setup           = false;
     test->_suite_name               = strdup(suite_name);

@@ -11,8 +11,24 @@ https://github.com/asciidoctor/asciidoctor
 
 == Architectural PMCs
 https://www.brendangregg.com/blog/2017-05-04/the-pmcs-of-ec2.html
+https://perfmon-events.intel.com/
 
-== perf_event_open - how to monitoring multiple events
+* CPU_CLK_UNHALTED.THREAD_P
+** Number of core cycles while the logical processor is not in a halt state.
+* INST_RETIRED.ANY_P
+** Instructions retired (Programmable counter and Precise Event)
+* CPU_CLK_THREAD_UNHALTED.REF_XCLK
+** Increments at the frequency of XCLK (100 MHz) when not halted.
+* LONGEST_LAT_CACHE.REFERENCE
+** This event counts requests originating from the core that reference a cache line in the last level cache.
+* LONGEST_LAT_CACHE.MISS
+** This event counts each cache miss condition for references to the last level cache.
+* BR_INST_RETIRED.ALL_BRANCHES
+** All (macro) branch instructions retired.
+* BR_MISP_RETIRED.ALL_BRANCHES
+** Mispredicted macro branch instructions retired.
+
+== perf_event_open - how to monitor multiple events
 https://stackoverflow.com/questions/42088515/perf-event-open-how-to-monitoring-multiple-events
 
 == Perf Events

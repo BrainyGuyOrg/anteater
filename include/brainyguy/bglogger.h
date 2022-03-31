@@ -70,15 +70,14 @@ void bg_print_stderr(const char *severity, const char *file_name, uint32_t line_
 
 // ------------------------------------------------------------------------------------------------
 #if defined(BG_BUILD_MODE_OFF)
-#define bg_internal_assert(expr)   ((void)0)
+#define bg_internal_verify(expr)   ((void)0)
 #else
-#define bg_internal_assert(expr)                                                                    \
-        {                                                                                           \
-            if (!(expr))   bg_print_stderr("ASSERTION FAILED",                                      \
+#define bg_internal_verify(expr)                                                                    \
+        (expr) ? ((void)0) :                                                                        \
+            bg_print_stderr("ASSERTION FAILED",                                                     \
                 BG_FILE_NAME, BG_LINE_NUMBER,                                                       \
                 BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE,                                            \
-                "%s", #expr);                                                                       \
-        }
+                "%s", #expr)
 #endif
 
 // ------------------------------------------------------------------------------------------------
@@ -119,9 +118,22 @@ typedef enum {
 
 // ------------------------------------------------------------------------------------------------
 typedef enum {
-    BG_DATATYPE_CATEGORY = 1,
-    BG_DATATYPE_INTERVAL = 2,
-    BG_DATATYPE_RATIO = 3
+    BG_DATATYPE_NONE = 0,
+
+    // string
+    BG_DATATYPE_CATEGORICAL = 1000,
+    BG_DATATYPE_ORDINAL = 1100,
+    BG_DATATYPE_ORDINAL_BOOL = 1110,
+    BG_DATATYPE_NOMINAL = 1500,
+    BG_DATATYPE_NOMINAL_INT = 1510,
+
+    // double
+    BG_DATATYPE_NUMERICAL = 2000,
+    BG_DATATYPE_INTERVAL = 2100,
+    BG_DATATYPE_INTERVAL_TIMESTAMP = 2110,
+    BG_DATATYPE_RATIO = 2500,
+    BG_DATATYPE_RATIO_COUNT = 2510,
+    BG_DATATYPE_RATIO_CURRENCY = 2520
 } bg_DataType;
 
 typedef struct bg_ColumnInfo_struct bg_ColumnInfo;
@@ -129,7 +141,7 @@ typedef struct bg_ColumnInfo_struct {
     bg_RecordType _record_type;
     bg_ColumnInfo *_next;
 
-    const char *_name;
+    const char *_label;
     bg_DataType _data_type;
 } bg_ColumnInfo;
 
@@ -139,8 +151,7 @@ typedef struct bg_ColumnData_struct {
     bg_ColumnData *_next;
 
     const char *_label;
-    bg_DataType _data_type;
-    const char *_category_value;
+    const char *_string_value;
     double _double_value;
 } bg_ColumnData;
 
@@ -170,7 +181,7 @@ typedef struct bg_DataSink_struct {
     const char *_options;
     bg_ColumnInfo *_column_infos;
     bg_Filter *_filters;
-    void *_private;
+    void *_device_data;
 
     void (*_close_sink)(bg_DataSink *data_sink);
 
@@ -204,14 +215,15 @@ typedef struct {
     bool _is_json;
     bool _use_header;
     bool _use_comments;
+    bool _use_quotes;
 } bg_TextDataSink;
 
 // name=directory name
-// options=csv, spaces, or json; header, or noheader; comments, or nocomments
+// options=csv, spaces, or json; header, or noheader; comments, or nocomments; quotes or noquotes
 // #=CSV comment char, //=JSON comment chars
 // Note: takes ownership of column_infos and filters
-bg_DataSink *bg_new_text_sink(const char *device, const char *name, const char *options,
-                              bg_ColumnInfo *column_infos, bg_Filter *filters);
+void bg_new_text_sink(bg_DataSink* data_sink, const char *device, const char *name, const char *options,
+                      bg_ColumnInfo *column_infos, bg_Filter *filters);
 
 void text_close_sink(bg_DataSink *data_sink);
 
@@ -227,11 +239,10 @@ void bg_assert_fail(const char *expr, const char *file_name, uint32_t line_numbe
 #if defined(BG_BUILD_MODE_OFF) || defined(BG_BUILD_MODE_DEBUG) || \
     defined(BG_BUILD_MODE_TEST) || defined(BG_BUILD_MODE_QA)
 #define bg_assert(expr) \
-        { \
-            if (!(expr))   bg_assert_fail(#expr, \
-                BG_FILE_NAME, BG_LINE_NUMBER, \
-                BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE); \
-        }
+            (expr) ? ((void)0) : \
+                bg_assert_fail(#expr, \
+                    BG_FILE_NAME, BG_LINE_NUMBER, \
+                    BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE)
 #else
 #define bg_assert(expr)   ((void)0)
 #endif
@@ -242,11 +253,10 @@ void bg_verify_fail(const char *expr, const char *file_name, uint32_t line_numbe
 
 #if !defined(BG_BUILD_MODE_OFF)
 #define bg_verify(expr) \
-        { \
-            if (!(expr))   bg_verify_fail(#expr, \
-                BG_FILE_NAME, BG_LINE_NUMBER, \
-                BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE); \
-        }
+            (expr) ? ((void)0) : \
+                bg_verify_fail(#expr, \
+                    BG_FILE_NAME, BG_LINE_NUMBER, \
+                    BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE)
 #else
 #define bg_verify(expr)   ((void)0)
 #endif
@@ -269,7 +279,7 @@ typedef struct bg_Program_struct {
     const char *_function_name;
     const char *_function_signature;
 
-    uint16_t _argc;
+    int _argc;
     const char **_argv;
     const char **_envp;
 } bg_Program;
@@ -277,7 +287,7 @@ typedef struct bg_Program_struct {
 void bg_program_constructor(bg_Program *bg_program_variable,
                             const char *file_name, uint32_t line_number,
                             const char *function_name, const char *function_signature,
-                            uint16_t argc, const char **argv, const char **envp);
+                            int argc, const char **argv, const char **envp);
 
 void bg_program_destructor(bg_Program *bg_program_variable);
 
