@@ -8,6 +8,10 @@ Resources:
 
 https://docs.asciidoctor.org/
 https://github.com/asciidoctor/asciidoctor
+https://asciidocfx.com/
+https://shields.io/
+https://fontawesome.com/
+https://en.wikipedia.org/wiki/Web_colors#HTML_color_names
 
 == Architectural PMCs
 https://www.brendangregg.com/blog/2017-05-04/the-pmcs-of-ec2.html
@@ -27,6 +31,10 @@ https://perfmon-events.intel.com/
 ** All (macro) branch instructions retired.
 * BR_MISP_RETIRED.ALL_BRANCHES
 ** Mispredicted macro branch instructions retired.
+
+It is possible to inspect how perf tool sets its perf_event_attr structure by
+running the perf command with the -vv flag e.g.
+perf stat -vv -a -e instructions -- date
 
 == perf_event_open - how to monitor multiple events
 https://stackoverflow.com/questions/42088515/perf-event-open-how-to-monitoring-multiple-events
@@ -173,7 +181,31 @@ https://www.loc.gov/standards/datetime/
 == timestamps
 https://nickb.dev/blog/designing-a-rest-api-unix-time-vs-iso-8601
 https://unix4lyfe.org/time/
+www.iso.org/iso/home/standards/iso8601.htm
+https://www.iso.org/news/2017/02/Ref2164.html
 
 == calling functions before main
 http://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc/2390626#2390626
 https://gist.github.com/tenmyo/dde01e838cdaf14c8353fbad03ab9bc8
+
+== enabling system perf events
+# command line or batch file
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+sudo sysctl -w kernel.perf_event_paranoid=-1
+sudo sysctl -w kernel.kptr_restrict=0
+sudo sysctl -w kernel.yama.ptrace_scope=0
+
+# default values
+> cat /proc/sys/kernel/perf_event_paranoid
+2
+> cat /proc/sys/kernel/kptr_restrict
+0
+> cat /proc/sys/kernel/yama/ptrace_scope
+1
+
+# perf_event_paranoid
+Controls use of the performance events system by unprivileged users (without CAP_SYS_ADMIN). The default value is 2.
+
+-1: Allow use of (almost) all events by all users Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK
+
+=0: Disallow ftrace function tracepoint by users without CAP_SYS_ADMIN Disallow raw tracepoint access by users without CAP_SYS_ADMIN =1: Disallow CPU event access by users without CAP_SYS_ADMIN =2: Disallow kernel profiling by users without CAP_SYS_ADMIN

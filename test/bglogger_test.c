@@ -32,7 +32,6 @@ bg_test(ackermann, ackermann4_1, {
 int main(int argc, const char** argv, const char** envp) {
     bg_program(argc, argv, envp, {
         bg_add_sink("stderr", "all", "json header comments", NULL, NULL);
-
         bg_add_sink("stderr", "all", "spaces header comments", NULL, NULL);
 
     });
