@@ -1,7 +1,7 @@
 = bglogger
 :icons: font
-:check: icon:check[size=2x,role=green]
-:cross: icon:times[size=2x,role=red]
+:check: icon:check[size=1x,role=green]
+:cross: icon:times[size=1x,role=red]
 
 A logging, profiling, and testing library for C and C++.
 
@@ -93,10 +93,10 @@ A logging, profiling, and testing library for C and C++.
 .Function Availability by Build Mode
 [cols="3,1,1,1,1,1,1"]
 |===
-|Function    |Off   |Debug  |Test   |QA     |Profile|Release
+|Function     |Off      |Debug    |Test     |QA       |Profile  |Release
 
 |bg_assert   ^|{cross} ^|{check} ^|{check} ^|{check} ^|{cross} ^|{cross}
-|bg_verify   ^|{cross} ^|{check} ^|{check} ^|{check} ^|{cross} ^|{check}
+|bg_verify   ^|{cross} ^|{check} ^|{check} ^|{check} ^|{check} ^|{check}
 7+|
 |bg_program  ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}
 |bg_thread   ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}

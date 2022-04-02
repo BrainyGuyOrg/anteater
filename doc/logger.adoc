@@ -209,3 +209,23 @@ Controls use of the performance events system by unprivileged users (without CAP
 -1: Allow use of (almost) all events by all users Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK
 
 =0: Disallow ftrace function tracepoint by users without CAP_SYS_ADMIN Disallow raw tracepoint access by users without CAP_SYS_ADMIN =1: Disallow CPU event access by users without CAP_SYS_ADMIN =2: Disallow kernel profiling by users without CAP_SYS_ADMIN
+
+== perf stat
+https://github.com/torvalds/linux/blob/master/tools/perf/builtin-stat.c
+
+.        32,023.76 msec task-clock:u              #    1.000 CPUs utilized
+                 0      context-switches:u        #    0.000 /sec
+                 0      cpu-migrations:u          #    0.000 /sec
+.              567      page-faults:u             #   17.706 /sec
+   127,235,077,161      cycles:u                  #    3.973 GHz                      (62.50%)
+     2,097,556,820      stalled-cycles-frontend:u #    1.65% frontend cycles idle     (62.50%)
+.        4,687,139      stalled-cycles-backend:u  #    0.00% backend cycles idle      (62.50%)
+   200,394,555,222      instructions:u            #    1.57  insn per cycle
+                                                  #    0.01  stalled cycles per insn  (62.50%)
+.   45,824,979,792      branches:u                #    1.431 G/sec                    (62.50%)
+     2,057,497,206      branch-misses:u           #    4.49% of all branches          (62.50%)
+
+32.025712241 seconds time elapsed
+
+31.820490000 seconds user
+ 0.002891000 seconds sys
