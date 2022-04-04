@@ -231,6 +231,108 @@ void create_base_log_dir() {
 }
 
 // ------------------------------------------------------------------------------------------------
+// CRC64
+// ------------------------------------------------------------------------------------------------
+// modified from xz library src/liblzma/check/crc64_small.c
+// https://en.wikipedia.org/wiki/Cyclic_redundancy_check
+
+static uint64_t crc64_table[256];
+
+static void bg_crc64_init() {
+    // CRC-64-ECMA, reversed polynomial
+	static const uint64_t poly64 = 0xC96C5795D7870F42ull;
+
+	for (size_t b = 0; b < 256; ++b) {
+		uint64_t r = b;
+		for (size_t i = 0; i < 8; ++i) {
+			if (r & 1)
+				r = (r >> 1) ^ poly64;
+			else
+				r >>= 1;
+		}
+
+		crc64_table[b] = r;
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+uint64_t bg_calc_crc64(const uint8_t *buf, size_t size, uint64_t crc) {
+	crc = ~crc;
+
+	while (size != 0) {
+		crc = crc64_table[*buf++ ^ (crc & 0xFF)] ^ (crc >> 8);
+		--size;
+	}
+
+	return ~crc;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Hash Map
+// ------------------------------------------------------------------------------------------------
+// start_size needs to be a power of two
+void bg_hash_constructor(bg_Map* map, size_t start_size) {
+    enum {MAP_START_SIZE = 512};
+    map->_allocated = MAP_START_SIZE;
+    map->_entries = calloc(MAP_START_SIZE, sizeof(bg_MapEntry));
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_hash_destructor(bg_Map* map) {
+    free(map->_entries);
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_hash_internal_insert(bg_Map* map, uint64_t key_hash, void* value) {
+    uint64_t hash = key_hash;
+    size_t index = hash & (map->_size - 1);
+    while (map->_entries[index]._key_hash != key_hash && map->_entries[index]._value != NULL) {
+        hash = bg_calc_crc64((uint8_t*)&hash, sizeof(hash), 0);
+        index = hash & (map->_size - 1);
+    }
+
+    bg_assert(map->_entries[index]._value == NULL);
+    map->_entries[index]._key_hash = key_hash;
+    map->_entries[index]._value = value;
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_map_enlarge(bg_Map* map) {
+    bg_Map new_map;
+    bg_hash_constructor(&new_map, map->_allocated << 1);
+
+    for (size_t index = 0; index < map->_size; ++index) {
+        if (map->_entries[index]._value) {
+            bg_hash_internal_insert(&new_map, map->_entries[index]._key_hash, map->_entries[index]._value);
+        }
+    }
+
+    bg_hash_destructor(map);
+    memcpy(map, &new_map, sizeof(bg_Map));
+}
+
+// ------------------------------------------------------------------------------------------------
+void* bg_hash_find(bg_Map* map, uint64_t key_hash) {
+    uint64_t hash = key_hash;
+    size_t index = hash & (map->_size - 1);
+    while (map->_entries[index]._key_hash != key_hash && map->_entries[index]._value != NULL) {
+        hash = bg_calc_crc64((uint8_t*)&hash, sizeof(hash), 0);
+        index = hash & (map->_size - 1);
+    }
+
+    return (map->_entries[index]._value == NULL) ? NULL : &map->_entries[index];
+}
+
+// ------------------------------------------------------------------------------------------------
+void bg_hash_insert(bg_Map* map, uint64_t key_hash, void* value) {
+    if (map->_size >= (map->_allocated >> 1)) {
+        bg_map_enlarge(map);
+    }
+
+    bg_hash_internal_insert(map, key_hash, value);
+}
+
+// ------------------------------------------------------------------------------------------------
 // Data Sinks
 // ------------------------------------------------------------------------------------------------
 bg_DataSink* g_data_sinks;
@@ -597,6 +699,7 @@ void bg_program_constructor(bg_Program* bg_program_variable,
     bg_program_variable->_envp                  = envp;
 
     srand(time(NULL));   // seed random number generator
+    bg_crc64_init();   // initialize CRC64 hash table
     set_program_name(argv[0]);
     create_base_log_dir();
 }

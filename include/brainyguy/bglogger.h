@@ -64,6 +64,33 @@ extern "C" {
 #include <time.h>
 
 // ------------------------------------------------------------------------------------------------
+// Hash Map
+// ------------------------------------------------------------------------------------------------
+typedef struct bg_MapEntry_struct bg_MapEntry;
+typedef struct bg_MapEntry_struct {
+    uint64_t        _key_hash;
+    void*           _value;
+} bg_MapEntry;
+
+typedef struct bg_Map_struct bg_Map;
+typedef struct bg_Map_struct {
+    uint32_t        _size;
+    uint32_t        _allocated;
+    bg_MapEntry*    _entries;
+} bg_Map;
+
+// ------------------------------------------------------------------------------------------------
+// start_size needs to be a power of two
+void bg_hash_constructor(bg_Map* map, size_t start_size);
+void bg_hash_destructor(bg_Map* map);
+void bg_hash_internal_insert(bg_Map* map, uint64_t key_hash, void* value);
+void bg_map_enlarge(bg_Map* map);
+void* bg_hash_find(bg_Map* map, uint64_t key_hash);
+void bg_hash_insert(bg_Map* map, uint64_t key_hash, void* value);
+
+// ------------------------------------------------------------------------------------------------
+// Assertions
+// ------------------------------------------------------------------------------------------------
 void bg_print_stderr(const char *severity, const char *file_name, uint32_t line_number,
                      const char *function_name, const char *function_signature,
                      const char *message, ...);

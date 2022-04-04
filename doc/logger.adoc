@@ -229,3 +229,12 @@ https://github.com/torvalds/linux/blob/master/tools/perf/builtin-stat.c
 
 31.820490000 seconds user
  0.002891000 seconds sys
+
+== Linux kernel module for MSR save/restore
+https://github.com/LLNL/msr-safe
+
+== Linux kernel msr module (requires root)
+https://man7.org/linux/man-pages/man4/msr.4.html
+https://www.kernel.org/doc/html/v4.17/trace/events-msr.html
+https://www.reddit.com/r/archlinux/comments/lixt4g/how_do_i_installuse_the_msr_kernel_module/
+https://www.phoronix.com/scan.php?page=news_item&px=Linux-Filter-Tightening-MSRs
