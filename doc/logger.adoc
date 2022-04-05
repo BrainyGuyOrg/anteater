@@ -16,6 +16,7 @@ https://en.wikipedia.org/wiki/Web_colors#HTML_color_names
 == Architectural PMCs
 https://www.brendangregg.com/blog/2017-05-04/the-pmcs-of-ec2.html
 https://perfmon-events.intel.com/
+https://hadibrais.wordpress.com/2019/09/06/the-linux-perf-event-scheduling-algorithm/
 
 * CPU_CLK_UNHALTED.THREAD_P
 ** Number of core cycles while the logical processor is not in a halt state.
@@ -42,6 +43,10 @@ https://stackoverflow.com/questions/42088515/perf-event-open-how-to-monitoring-m
 == Perf Events
 https://web.eece.maine.edu/~vweaver/projects/perf_events/index.html
 perf_event_open
+
+== NMI hardlock watchdog
+https://www.kernel.org/doc/html/latest/admin-guide/lockup-watchdogs.html
+cat /proc/sys/kernel/nmi_watchdog
 
 == Microsoft try finally
 https://docs.microsoft.com/en-us/cpp/cpp/try-finally-statement
@@ -210,7 +215,7 @@ Controls use of the performance events system by unprivileged users (without CAP
 
 =0: Disallow ftrace function tracepoint by users without CAP_SYS_ADMIN Disallow raw tracepoint access by users without CAP_SYS_ADMIN =1: Disallow CPU event access by users without CAP_SYS_ADMIN =2: Disallow kernel profiling by users without CAP_SYS_ADMIN
 
-== perf stat
+== perf stat source code
 https://github.com/torvalds/linux/blob/master/tools/perf/builtin-stat.c
 
 .        32,023.76 msec task-clock:u              #    1.000 CPUs utilized
@@ -238,3 +243,30 @@ https://man7.org/linux/man-pages/man4/msr.4.html
 https://www.kernel.org/doc/html/v4.17/trace/events-msr.html
 https://www.reddit.com/r/archlinux/comments/lixt4g/how_do_i_installuse_the_msr_kernel_module/
 https://www.phoronix.com/scan.php?page=news_item&px=Linux-Filter-Tightening-MSRs
+
+== Coding Standard - Google
+https://google.github.io/styleguide/cppguide.html
+
+== Documentation - Doxygen
+https://www.doxygen.nl/index.html
+
+=== Debugging - Tracing
+
+* bg_program(args) - implicit function
+* bg_thread(subsystem, session) - implicit function
+* bg_function(subsystem, session)
+* bg_line()
+* bg_assert()
+* bg_verify()
+
+=== Profiling
+
+* bg_function
+* bg_interval()
+* bg_ratio()
+
+== Windows Performance Counters
+https://docs.microsoft.com/en-us/windows/win32/perfctrs/performance-counters-portal
+https://docs.microsoft.com/en-us/windows/win32/perfctrs/consuming-counter-data
+https://docs.microsoft.com/en-us/windows/win32/perfctrs/using-the-pdh-functions-to-consume-counter-data
+https://docs.microsoft.com/en-us/windows/win32/perfctrs/using-the-perflib-functions-to-consume-counter-data

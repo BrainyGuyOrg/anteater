@@ -98,12 +98,12 @@ A logging, profiling, and testing library for C and C++.
 |bg_assert   ^|{cross} ^|{check} ^|{check} ^|{check} ^|{cross} ^|{cross}
 |bg_verify   ^|{cross} ^|{check} ^|{check} ^|{check} ^|{check} ^|{check}
 7+|
-|bg_program  ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}
-|bg_thread   ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}
-|bg_function ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}
+|bg_program  ^|{cross} ^|{check} ^|{cross} ^|{cross} ^|{check} ^|{cross}
+|bg_thread   ^|{cross} ^|{check} ^|{cross} ^|{cross} ^|{check} ^|{cross}
+|bg_function ^|{cross} ^|{check} ^|{cross} ^|{cross} ^|{check} ^|{cross}
 7+|
-|bg_interval ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}
-|bg_ratio    ^|{cross} ^|{check} ^|{check} ^|{cross} ^|{check} ^|{cross}
+|bg_interval ^|{cross} ^|{cross} ^|{cross} ^|{cross} ^|{check} ^|{cross}
+|bg_ratio    ^|{cross} ^|{cross} ^|{cross} ^|{cross} ^|{check} ^|{cross}
 |===
 
 == To Do Checklist

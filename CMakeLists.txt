@@ -21,13 +21,13 @@ project(BgLogger
 
 include(CTest)
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 file(GLOB LIB_HEADER_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/include/brainyguy/*.h")
 file(GLOB LIB_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/src/*.c")
 
 add_library(bglogger SHARED ${LIB_HEADER_LIST} ${LIB_SOURCE_LIST})
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 target_include_directories(bglogger
     PUBLIC
         $<INSTALL_INTERFACE:include>
@@ -50,7 +50,7 @@ target_include_directories(bglogger_test
 
 target_link_libraries(bglogger_test PUBLIC bglogger)
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # https://gitlab.kitware.com/cmake/community/-/wikis/doc/tutorials/How-To-Write-Platform-Checks
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_compile_definitions(BG_PLATFORM_WINDOWS=1)
@@ -62,7 +62,7 @@ else()
     message(SEND_ERROR "ERROR: Platform name not recognized: ${CMAKE_SYSTEM_NAME}")
 endif()
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
 if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     add_compile_definitions(BG_COMPILER_MSVC=1)
@@ -76,11 +76,27 @@ else()
     message(SEND_ERROR "ERROR: Compiler id not recognized: ${CMAKE_C_COMPILER_ID}")
 endif()
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# https://cmake.org/cmake/help/latest/variable/CMAKE_SYSTEM_PROCESSOR.html
+# https://cmake.org/cmake/help/latest/variable/CMAKE_HOST_SYSTEM_PROCESSOR.html
+# https://superuser.com/questions/305901/possible-values-of-processor-architecture/1441469#1441469
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    add_compile_definitions(BG_PROCESSOR_x86_64=1)
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
+    add_compile_definitions(BG_PROCESSOR_x86_64=1)
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64")
+    add_compile_definitions(BG_PROCESSOR_ARM_64=1)
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "X86")
+    add_compile_definitions(BG_PROCESSOR_X86_32=1)
+else()
+    message(SEND_ERROR "ERROR: CPU architecture not recognized: ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+# -----------------------------------------------------------------------------
 #add_compile_definitions(PRIVATE BG_BUILD_MODE_PROFILE=1)
 add_compile_definitions(PRIVATE BG_BUILD_MODE_TEST=1)
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 if(BUILD_TESTING)
   add_test(NAME ackermann_ackermann4_1 COMMAND bglogger_test ackermann ackermann4_1)
 endif()
