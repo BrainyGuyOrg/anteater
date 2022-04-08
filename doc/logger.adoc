@@ -194,21 +194,23 @@ http://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-v
 https://gist.github.com/tenmyo/dde01e838cdaf14c8353fbad03ab9bc8
 
 == enabling system perf events
-# command line or batch file
+=== command line or batch file
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
 sudo sysctl -w kernel.perf_event_paranoid=-1
 sudo sysctl -w kernel.kptr_restrict=0
 sudo sysctl -w kernel.yama.ptrace_scope=0
 
-# default values
+=== default values
 > cat /proc/sys/kernel/perf_event_paranoid
 2
+
 > cat /proc/sys/kernel/kptr_restrict
 0
+
 > cat /proc/sys/kernel/yama/ptrace_scope
 1
 
-# perf_event_paranoid
+=== perf_event_paranoid
 Controls use of the performance events system by unprivileged users (without CAP_SYS_ADMIN). The default value is 2.
 
 -1: Allow use of (almost) all events by all users Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK
@@ -250,23 +252,47 @@ https://google.github.io/styleguide/cppguide.html
 == Documentation - Doxygen
 https://www.doxygen.nl/index.html
 
-=== Debugging - Tracing
+-- Environmental Variables
 
-* bg_program(args) - implicit function
-* bg_thread(subsystem, session) - implicit function
-* bg_function(subsystem, session)
-* bg_line()
-* bg_assert()
-* bg_verify()
+* BG_SUBSYSTEM_FILTER
+* BG_LOG_DIR
 
-=== Profiling
+=== Debug
 
-* bg_function
-* bg_interval()
-* bg_ratio()
+* bg_function(subsystem, session, count, code)
+* bg_debug(message, ...)
+* bg_assert(expression)
+* bg_assert_stderr(expression)
+* bg_error_stderr()
+
+=== Profile
+
+* bg_function(subsystem, session, count, code)
+
+=== Test
+
+bg_test_suite_setup(suite, code)
+bg_test(suite, name, code)
 
 == Windows Performance Counters
 https://docs.microsoft.com/en-us/windows/win32/perfctrs/performance-counters-portal
 https://docs.microsoft.com/en-us/windows/win32/perfctrs/consuming-counter-data
 https://docs.microsoft.com/en-us/windows/win32/perfctrs/using-the-pdh-functions-to-consume-counter-data
 https://docs.microsoft.com/en-us/windows/win32/perfctrs/using-the-perflib-functions-to-consume-counter-data
+
+== Assertions/Debugging code philosophy
+
+There is a need to protect the intellectual property of the source code in a release environment.
+You should not have to worry about the effect on the performance of the code if
+you add assertions. Error checks that need to be retained in the released code
+should probably not terminate the program.
+Debug statements can be used to signal warnings, since these should also be
+excluded from release builds.
+Unit tests are a great complement to assertions.
+Assertions should end the program execution. Assertions are for verifying that
+situations that should not happen, actually did not happen. These are situations
+that can never occur in release in a fully debugged program.
+
+https://wiki.c2.com/?DoNotUseAssertions
+
+https://wiki.c2.com/?ShipWithAssertionsOn

@@ -38,7 +38,7 @@ extern "C" {
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------
-#if defined(BG_COMPILER_GCC) || defined(BG_COMPILER_CLANG) ||                  \
+#if defined(BG_COMPILER_GCC) || defined(BG_COMPILER_CLANG) || \
     defined(BG_COMPILER_ICC)
 #define BG_COMPILER_GCC_FAMILY 1
 #endif
@@ -85,6 +85,8 @@ typedef void (*bg_Destructor)(void *record);
 
 typedef enum {
   BG_STRUCTTYPE_HASHMAP = 0xDEADBE01,
+  BG_STRUCTTYPE_COUNTERS = 0xDEADBE02,
+  BG_STRUCTTYPE_COUNTERHANDLES = 0xDEADBE03,
 
   BG_STRUCTTYPE_COLUMNINFO = 0xDEADBE11,
   BG_STRUCTTYPE_COLUMNDATA = 0xDEADBE12,
@@ -103,15 +105,17 @@ typedef enum {
 // -----------------------------------------------------------------------------
 // cyclic redundancy check works reasonably well as a hash function
 enum { BG_VALUES_IN_BYTE = 256 };
-extern uint64_t crc64_table[BG_VALUES_IN_BYTE];
+extern uint64_t g_crc64_table[BG_VALUES_IN_BYTE];
 
 // one time initialization of lookup table
-extern void bg_crc64_init();
+extern void
+bg_crc64_constructor(uint64_t* crc64_table);
 
 // calculate the CRC64-ECMA of the given bytes
 // pass in zero for the crc parameter for an initial set of bytes
 // crc parameter is for multiple calls for the same CRC calculation
-extern uint64_t bg_calc_crc64(const uint8_t *buf, size_t size, uint64_t crc);
+extern uint64_t
+bg_crc64_calc(const uint8_t *buf, size_t size, uint64_t crc);
 
 // -----------------------------------------------------------------------------
 // Hash Map
@@ -139,52 +143,84 @@ typedef struct bg_HashMap_struct {
 } bg_HashMap;
 
 // -----------------------------------------------------------------------------
-// start_size needs to be a power of two
-void bg_hash_constructor(bg_HashMap *map, size_t start_size);
-void bg_hash_destructor(bg_HashMap *map);
+// start_size must be a power of two
+extern void
+bg_hash_constructor(bg_HashMap *map, size_t start_size);
+
+extern void
+bg_hash_destructor(void *map);
+
 // insert function without hash table size check
 // used to avoid a potentially mutually recursive call
-void bg_hash_internal_insert(bg_HashMap *map, uint64_t key_hash, void *value);
+extern void
+bg_hash_internal_insert(bg_HashMap *map, uint64_t key_hash, void *value);
+
 // internal function to double the size of the hash table
-void bg_map_enlarge(bg_HashMap *map);
-void *bg_hash_find(bg_HashMap *map, uint64_t key_hash);
-void bg_hash_insert(bg_HashMap *map, uint64_t key_hash, void *value);
+extern void
+bg_map_enlarge(bg_HashMap *map);
+
+extern void *
+bg_hash_find(bg_HashMap *map, uint64_t key_hash);
+
+extern void
+bg_hash_insert(bg_HashMap *map, uint64_t key_hash, void *value);
 
 // -----------------------------------------------------------------------------
 // Assertions
 // -----------------------------------------------------------------------------
 // internal function to print a message to stderr
-void bg_print_stderr(const char *severity, const char *file_name,
-                     uint32_t line_number, const char *function_name,
-                     const char *function_signature, const char *message, ...);
+extern void
+bg_print_stderr(const char *severity, const char *file_name,
+                uint32_t line_number, const char *function_name,
+                const char *function_signature,
+                const char *message, ...);
 
 // -----------------------------------------------------------------------------
-#if defined(BG_BUILD_MODE_OFF)
-#define bg_internal_verify(expr) ((void)0)
-#else
-#define bg_internal_verify(expr)                                               \
+#if defined(BG_BUILD_MODE_DEBUG) || defined(BG_BUILD_MODE_TEST) ||             \
+    defined(BG_BUILD_MODE_QA)
+#define bg_internal_assert(expr)                                               \
   (expr)                                                                       \
       ? ((void)0)                                                              \
       : bg_print_stderr("ASSERTION FAILED", BG_FILE_NAME, BG_LINE_NUMBER,      \
                         BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, "%s", #expr)
+#else
+#define bg_internal_assert(expr) ((void)0)
 #endif
 
 // -----------------------------------------------------------------------------
-#if defined(BG_BUILD_MODE_OFF)
-#define bg_internal_error(severity, message, ...) ((void)0)
+#if defined(BG_BUILD_MODE_DEBUG) || defined(BG_BUILD_MODE_TEST) ||             \
+    defined(BG_BUILD_MODE_QA) || defined(BG_BUILD_MODE_PROFILE) ||             \
+    defined(BG_BUILD_MODE_RELEASE)
+#define bg_internal_verify(expr)                                               \
+  (expr)                                                                       \
+      ? ((void)0)                                                              \
+      : bg_print_stderr("RUNTIME ASSERTION FAILED",                            \
+                        BG_FILE_NAME, BG_LINE_NUMBER,                          \
+                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, "%s", #expr)
 #else
+#define bg_internal_verify(expr) ((void)0)
+#endif
+
+// -----------------------------------------------------------------------------
+#if defined(BG_BUILD_MODE_DEBUG) || defined(BG_BUILD_MODE_TEST) ||             \
+    defined(BG_BUILD_MODE_QA) || defined(BG_BUILD_MODE_PROFILE) ||             \
+    defined(BG_BUILD_MODE_RELEASE)
 #define bg_internal_error(severity, message, ...)                              \
   bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER, BG_FUNCTION_NAME,    \
                   BG_FUNCTION_SIGNATURE, message, __VA_ARGS__)
+#else
+#define bg_internal_error(severity, message, ...) ((void)0)
 #endif
 
 // -----------------------------------------------------------------------------
-#if defined(BG_BUILD_MODE_OFF)
-#define bg_internal_errno(severity) ((void)0)
-#else
+#if defined(BG_BUILD_MODE_DEBUG) || defined(BG_BUILD_MODE_TEST) ||             \
+    defined(BG_BUILD_MODE_QA) || defined(BG_BUILD_MODE_PROFILE) ||             \
+    defined(BG_BUILD_MODE_RELEASE)
 #define bg_internal_errno(severity)                                            \
   bg_print_stderr(severity, BG_FILE_NAME, BG_LINE_NUMBER, BG_FUNCTION_NAME,    \
                   BG_FUNCTION_SIGNATURE, "(%d) %s", errno, strerror(errno))
+#else
+#define bg_internal_errno(severity) ((void)0)
 #endif
 
 // -----------------------------------------------------------------------------
@@ -200,9 +236,9 @@ typedef struct bg_CounterHandles_struct {
   int _fd_sw_page_faults;       // This reports the number of page faults.
   int _fd_sw_context_switches;  // This counts context switches.
   int _fd_sw_cpu_migrations;    // This reports the number of times the process has migrated to a new CPU.
-  int _fd_sw_page_faults_min;   // This counts the number of minor page faults. These did not require disk I/O to handle.
+  int _fd_sw_page_faults_min;   // This counts the number of minor page faults.
   int _fd_sw_page_faults_maj;   // This counts the number of major page faults. These required disk I/O to handle.
-  int _fd_sw_alignment_faults;  // This counts the number of alignment faults. These happen when unaligned memory accesses happen (not on x86).
+  int _fd_sw_alignment_faults;  // This counts the number of alignment faults.
   int _fd_sw_emulation_faults;  // This  counts the number of emulation faults.
 
   int _fd_hw_cpu_cycles;        // Total cycles.
@@ -229,14 +265,14 @@ typedef struct bg_Counters_struct {
   uint64_t _sw_page_faults;       // This reports the number of page faults.
   uint64_t _sw_context_switches;  // This counts context switches.
   uint64_t _sw_cpu_migrations;    // This reports the number of times the process has migrated to a new CPU.
-  uint64_t _sw_page_faults_min;   // This counts the number of minor page faults. These did not require disk I/O to handle.
+  uint64_t _sw_page_faults_min;   // This counts the number of minor page faults.
   uint64_t _sw_page_faults_maj;   // This counts the number of major page faults. These required disk I/O to handle.
-  uint64_t _sw_alignment_faults;  // This counts the number of alignment faults. These happen when unaligned memory accesses happen (not on x86).
+  uint64_t _sw_alignment_faults;  // This counts the number of alignment faults.
   uint64_t _sw_emulation_faults;  // This  counts the number of emulation faults.
 
   // four flexible (unpinned) groups are created
-  uint64_t _hw_cpu_cycles;        // Total cycles.
-  uint64_t _hw_instructions;      // Retired instructions.
+  uint64_t _hw_cpu_cycles;        // Cycles when thread is not halted.
+  uint64_t _hw_instructions;      // Retired (executed) instructions.
 
   uint64_t _hw_cache_references;  // Cache accesses.  Usually this indicates Last Level Cache accesses.
   uint64_t _hw_cache_misses;      // Cache misses.  Usually this indicates Last Level Cache misses.
@@ -249,17 +285,25 @@ typedef struct bg_Counters_struct {
 } bg_Counters;
 
 // -----------------------------------------------------------------------------
-extern void bg_counter_handles_constructor(bg_CounterHandles* counter_handles);
-extern void bg_counter_handles_destructor(bg_CounterHandles* counter_handles);
+extern void
+bg_counter_handles_constructor(bg_CounterHandles *counter_handles);
 
-extern void bg_counters_constructor(bg_Counters* counters);
-extern void bg_counters_destructor(bg_Counters* counters);
+extern void
+bg_counter_handles_destructor(void *counter_handles_void);
 
-extern void bg_read_counters(bg_CounterHandles* counter_handles,
-                             bg_Counters* counters);
+extern void
+bg_counters_constructor(bg_Counters *counters);
+
+extern void
+bg_counters_destructor(void *counters_void);
+
+extern void
+bg_read_counters(bg_CounterHandles *counter_handles, bg_Counters *counters);
+
 // stores delta in counters_start
-extern void bg_calc_thread_counters_delta(bg_Counters* counters_start,
-                                          bg_Counters* counters_end);
+extern void
+bg_calc_thread_counters_delta(bg_Counters *counters_start,
+                              bg_Counters *counters_end);
 
 // -----------------------------------------------------------------------------
 // Data Sinks
@@ -345,13 +389,16 @@ typedef struct bg_DataSink_struct {
 // dest=stdout, stderr, syslog, file
 // options=space-separated list, sink-specific
 // Note: takes ownership of column_infos and filters
-void bg_add_sink(const char *device, const char *name, const char *options,
-                 bg_ColumnInfo *column_infos, bg_Filter *filters);
+extern void
+bg_add_sink(const char *device, const char *name, const char *options,
+            bg_ColumnInfo *column_infos, bg_Filter *filters);
 
-void bg_delete_sinks();
+extern void
+bg_delete_sinks();
 
 // Note: takes ownership of column_datas
-void bg_log_record(bg_ColumnData *column_datas);
+extern void
+bg_log_record(bg_ColumnData *column_datas);
 
 // -----------------------------------------------------------------------------
 typedef struct {
@@ -376,23 +423,27 @@ typedef struct {
 // quotes or noquotes
 // #=CSV comment char, //=JSON comment chars
 // Note: takes ownership of column_infos and filters
-void bg_new_text_sink(bg_DataSink *data_sink, const char *device,
-                      const char *name, const char *options,
-                      bg_ColumnInfo *column_infos, bg_Filter *filters);
+extern void
+bg_new_text_sink(bg_DataSink *data_sink, const char *device,
+                 const char *name, const char *options,
+                 bg_ColumnInfo *column_infos, bg_Filter *filters);
 
-void text_close_sink(bg_DataSink *data_sink);
+extern void
+text_close_sink(bg_DataSink *data_sink);
 
 // Note: does NOT take ownership of column_datas
-void text_log_record(bg_DataSink *data_sink, bg_ColumnData *column_datas);
+extern void
+text_log_record(bg_DataSink *data_sink, bg_ColumnData *column_datas);
 
 // -----------------------------------------------------------------------------
 // Assertions
 // -----------------------------------------------------------------------------
-void bg_assert_fail(const char *expr, const char *file_name,
-                    uint32_t line_number, const char *function_name,
-                    const char *function_signature);
+extern void
+bg_assert_fail(const char *expr, const char *file_name,
+               uint32_t line_number, const char *function_name,
+               const char *function_signature);
 
-#if defined(BG_BUILD_MODE_OFF) || defined(BG_BUILD_MODE_DEBUG) ||              \
+#if defined(BG_BUILD_MODE_OFF) || defined(BG_BUILD_MODE_DEBUG) || \
     defined(BG_BUILD_MODE_TEST) || defined(BG_BUILD_MODE_QA)
 #define bg_assert(expr)                                                        \
   (expr) ? ((void)0)                                                           \
@@ -403,9 +454,10 @@ void bg_assert_fail(const char *expr, const char *file_name,
 #endif
 
 // -----------------------------------------------------------------------------
-void bg_verify_fail(const char *expr, const char *file_name,
-                    uint32_t line_number, const char *function_name,
-                    const char *function_signature);
+extern void
+bg_verify_fail(const char *expr, const char *file_name,
+               uint32_t line_number, const char *function_name,
+               const char *function_signature);
 
 #if !defined(BG_BUILD_MODE_OFF)
 #define bg_verify(expr)                                                        \
@@ -437,14 +489,12 @@ typedef struct bg_ProfileRecord_struct {
   const char *_function_name;
   const char *_function_signature;
 
-  const char* _subsystem;
-  const char* _session;
+  const char *_subsystem;
+  const char *_session;
 
-  const char* _numeric_label;
+  const char *_numeric_label;
   bool _is_ratio;
   double _numeric_value;
-
-
 
 } bg_ProfileRecord;
 
@@ -467,13 +517,15 @@ typedef struct bg_Program_struct {
   const char **_envp;
 } bg_Program;
 
-void bg_program_constructor(bg_Program *bg_program_variable,
-                            const char *file_name, uint32_t line_number,
-                            const char *function_name,
-                            const char *function_signature, int argc,
-                            const char **argv, const char **envp);
+extern void
+bg_program_constructor(bg_Program *bg_program_variable,
+                       const char *file_name, uint32_t line_number,
+                       const char *function_name,
+                       const char *function_signature, int argc,
+                       const char **argv, const char **envp);
 
-void bg_program_destructor(bg_Program *bg_program_variable);
+extern void
+bg_program_destructor(void *bg_program_variable);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
@@ -518,13 +570,15 @@ typedef struct bg_Thread_struct {
   const char *_session;
 } bg_Thread;
 
-void bg_thread_constructor(bg_Thread *bg_program_variable,
-                           const char *file_name, uint32_t line_number,
-                           const char *function_name,
-                           const char *function_signature,
-                           const char *subsystem, const char *session);
+extern void
+bg_thread_constructor(bg_Thread *bg_program_variable,
+                      const char *file_name, uint32_t line_number,
+                      const char *function_name,
+                      const char *function_signature,
+                      const char *subsystem, const char *session);
 
-void bg_thread_destructor(bg_Thread *bg_program_variable);
+extern void
+bg_thread_destructor(void *thread_void);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
@@ -567,15 +621,19 @@ typedef struct bg_Function_struct {
 
   const char *_subsystem;
   const char *_session;
+
+  /* parent function pointer */
 } bg_Function;
 
-void bg_function_constructor(bg_Function *bg_function_variable,
-                             const char *file_name, uint32_t line_number,
-                             const char *function_name,
-                             const char *function_signature,
-                             const char *subsystem, const char *session);
+extern void
+bg_function_constructor(bg_Function *bg_function_variable,
+                        const char *file_name, uint32_t line_number,
+                        const char *function_name,
+                        const char *function_signature,
+                        const char *subsystem, const char *session);
 
-void bg_function_destructor(bg_Function *bg_function_variable);
+extern void
+bg_function_destructor(void *function_void);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
@@ -612,13 +670,15 @@ typedef struct bg_Numerical_struct {
   double _value;
 } bg_Numerical;
 
-void bg_numerical_constructor(bg_Numerical *bg_numerical_variable,
-                              const char *file_name, uint32_t line_number,
-                              const char *function_name,
-                              const char *function_signature, bool is_ratio,
-                              const char *label, double value);
+extern void
+bg_numerical_constructor(bg_Numerical *bg_numerical_variable,
+                         const char *file_name, uint32_t line_number,
+                         const char *function_name,
+                         const char *function_signature, bool is_ratio,
+                         const char *label, double value);
 
-void bg_numerical_destructor(bg_Numerical *bg_numerical_variable);
+extern void
+bg_numerical_destructor(void *numerical_void);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
@@ -664,13 +724,16 @@ typedef struct bg_Test_struct {
   bg_test_pointer _test_function;
 } bg_Test;
 
-void bg_add_test_suite_setup(const char *suite_name,
-                             bg_test_pointer test_function);
+extern void
+bg_add_test_suite_setup(const char *suite_name,
+                        bg_test_pointer test_function);
 
-void bg_add_test(const char *suite_name, const char *test_name,
-                 bg_test_pointer test_function);
+extern void
+bg_add_test(const char *suite_name, const char *test_name,
+            bg_test_pointer test_function);
 
-int bg_run_test(const char *suite_name, const char *test_name);
+extern int
+bg_run_test(const char *suite_name, const char *test_name);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_TEST)
@@ -704,6 +767,11 @@ int bg_run_test(const char *suite_name, const char *test_name);
 // -----------------------------------------------------------------------------
 #if defined(__cplusplus)
 } // extern "C"
+#endif
+
+// -----------------------------------------------------------------------------
+#if defined(__cplusplus)
+// TODO
 #endif
 
 #endif // BG_LOGGER_H
