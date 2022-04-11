@@ -29,7 +29,7 @@
 #endif
 
 // -----------------------------------------------------------------------------
-// Internal Utility functions
+// Utility functions
 // -----------------------------------------------------------------------------
 enum { BG_ERROR_BUFFER_SIZE = 4096 };
 
@@ -70,7 +70,7 @@ void bg_print_stderr(const char *severity, const char *file_name,
 }
 
 // -----------------------------------------------------------------------------
-void get_random_bytes(uint8_t *buffer, const int buffer_size) {
+void bg_get_random_bytes(uint8_t *buffer, const int buffer_size) {
   bg_internal_verify(RAND_MAX >= 255); // should always be at least 32767
   for (int byte = 0; byte < buffer_size; ++byte) {
     buffer[byte] = (uint8_t) (rand() & 0xff);
@@ -78,7 +78,7 @@ void get_random_bytes(uint8_t *buffer, const int buffer_size) {
 }
 
 // -----------------------------------------------------------------------------
-bool approx_equal_double(const double a, const double b) {
+bool bg_approx_equal_double(const double a, const double b) {
   static const double DBL_EPSILON = 2.2204460492503131e-16;
   const double delta = fabs(a - b);
   if (delta <= DBL_EPSILON)
@@ -91,7 +91,7 @@ bool approx_equal_double(const double a, const double b) {
 
 // -----------------------------------------------------------------------------
 // returns the smallest power of 2 that is at least as big as value
-static uint64_t get_next_power2(const uint64_t value) {
+uint64_t bg_get_next_power2(const uint64_t value) {
   uint64_t power = 1;
 
   while (power < value) {
@@ -265,7 +265,7 @@ static void create_base_log_dir() {
 // -----------------------------------------------------------------------------
 // CRC64
 // -----------------------------------------------------------------------------
-// modified from xz library src/liblzma/check/crc64_small.c
+// modified from xz library library/liblzma/check/crc64_small.c
 // https://en.wikipedia.org/wiki/Cyclic_redundancy_check
 // original code is licensed as public domain
 

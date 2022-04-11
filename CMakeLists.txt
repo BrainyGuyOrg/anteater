@@ -16,14 +16,14 @@ cmake_minimum_required(VERSION 3.21)
 
 project(BgLogger
   VERSION 0.1.1
-  DESCRIPTION "A logging and profiling library for C and C++"
+  DESCRIPTION "A profiling, logging, and testing library for C and C++"
   LANGUAGES C)
 
 include(CTest)
 
 # -----------------------------------------------------------------------------
 file(GLOB LIB_HEADER_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/include/brainyguy/*.h")
-file(GLOB LIB_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/src/*.c")
+file(GLOB LIB_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/library/*.c")
 
 add_library(bglogger SHARED ${LIB_HEADER_LIST} ${LIB_SOURCE_LIST})
 
@@ -50,6 +50,19 @@ target_include_directories(bglogger_test
 
 target_link_libraries(bglogger_test PUBLIC bglogger)
 
+# -------------------------------------------------------------------
+file(GLOB MAT_MULT_C_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/sample/matrix_mult.c")
+add_executable(matrix_mult_c "${MAT_MULT_C_SOURCE_LIST}")
+
+target_include_directories(matrix_mult_c
+    PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${BgLogger_SOURCE_DIR}/include>
+)
+
+target_link_libraries(matrix_mult_c PUBLIC bglogger)
+
+# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # https://gitlab.kitware.com/cmake/community/-/wikis/doc/tutorials/How-To-Write-Platform-Checks
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

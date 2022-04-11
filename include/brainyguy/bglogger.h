@@ -101,6 +101,13 @@ typedef enum {
 } bg_StructType;
 
 // -----------------------------------------------------------------------------
+// Utilities
+// -----------------------------------------------------------------------------
+extern void bg_get_random_bytes(uint8_t *buffer, int buffer_size);
+extern bool bg_approx_equal_double(double a, double b);
+extern uint64_t bg_get_next_power2(uint64_t value);
+
+// -----------------------------------------------------------------------------
 // CRC64-ECMA
 // -----------------------------------------------------------------------------
 // cyclic redundancy check works reasonably well as a hash function

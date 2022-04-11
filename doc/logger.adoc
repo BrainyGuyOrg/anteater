@@ -296,3 +296,27 @@ that can never occur in release in a fully debugged program.
 https://wiki.c2.com/?DoNotUseAssertions
 
 https://wiki.c2.com/?ShipWithAssertionsOn
+
+== CPU Cache Sizes
+> lscpu | grep cache
+L1d cache:                       192 KiB (6 instances)
+L1i cache:                       192 KiB (6 instances)
+L2 cache:                        3 MiB (6 instances)
+L3 cache:                        32 MiB (1 instance)
+
+> getconf -a | grep CACHE
+LEVEL1_ICACHE_SIZE                 32768
+LEVEL1_ICACHE_ASSOC
+LEVEL1_ICACHE_LINESIZE             64
+LEVEL1_DCACHE_SIZE                 32768
+LEVEL1_DCACHE_ASSOC                8
+LEVEL1_DCACHE_LINESIZE             64
+LEVEL2_CACHE_SIZE                  524288
+LEVEL2_CACHE_ASSOC                 8
+LEVEL2_CACHE_LINESIZE              64
+LEVEL3_CACHE_SIZE                  33554432
+LEVEL3_CACHE_ASSOC                 0
+LEVEL3_CACHE_LINESIZE              64
+LEVEL4_CACHE_SIZE
+LEVEL4_CACHE_ASSOC
+LEVEL4_CACHE_LINESIZE
