@@ -249,7 +249,7 @@ static void create_base_log_dir() {
 #if defined(BG_PLATFORM_LINUX) || defined(BG_PLATFORM_BSD)
   char buffer[FILENAME_MAX];
   uint16_t salt;
-  get_random_bytes((uint8_t *) &salt, sizeof(salt));
+  bg_get_random_bytes((uint8_t *) &salt, sizeof(salt));
   const int chars_written =
       sprintf(buffer, "%s/%s-%d-%.4hx.log", get_base_log_dir(),
               g_program_base_name, get_process_id(), salt);
@@ -316,6 +316,16 @@ void bg_hash_constructor(bg_HashMap *map, size_t start_size) {
 void bg_hash_destructor(void *map) {
   bg_HashMap* hash_map = (bg_HashMap*)map;
   bg_assert(hash_map->_struct_type == BG_STRUCTTYPE_HASHMAP);
+
+  bg_HashMapEntry* hash_entry = hash_map->_entries;
+  for (size_t count = hash_map->_allocated; count != 0; --count, ++hash_entry) {
+    void* value = hash_entry->_value;
+    if (value) {
+      bg_Destructor destructor = (bg_Destructor) value;
+      destructor(value);
+    }
+  }
+
   free(hash_map->_entries);
 }
 
@@ -361,7 +371,8 @@ void *bg_hash_find(bg_HashMap *map, uint64_t key_hash) {
     index = hash & (map->_size - 1);
   }
 
-  return (map->_entries[index]._value == NULL) ? NULL : &map->_entries[index];
+  return (map->_entries[index]._value == NULL)
+    ? NULL : &map->_entries[index]._value;
 }
 
 // -----------------------------------------------------------------------------
@@ -371,6 +382,65 @@ void bg_hash_insert(bg_HashMap *map, uint64_t key_hash, void *value) {
   }
 
   bg_hash_internal_insert(map, key_hash, value);
+}
+
+// -----------------------------------------------------------------------------
+// Strings Hash
+// -----------------------------------------------------------------------------
+void bg_string_value_constructor(bg_StringValue* string_value, const bool ref_value, const char* value) {
+  string_value->_struct_type = BG_STRUCTTYPE_STRINGVALUE;
+  string_value->_destructor = bg_string_value_destructor;
+
+  string_value->_ref_value = ref_value;
+  string_value->_string_value = ref_value ? value : strdup(value);
+}
+
+// -----------------------------------------------------------------------------
+void bg_string_value_destructor(void* string_value_void) {
+  bg_StringValue* string_value = (bg_StringValue*)string_value_void;
+  bg_assert(string_value->_struct_type == BG_STRUCTTYPE_STRINGVALUE);
+
+  if (!string_value->_ref_value) {
+    free((void*)(string_value->_string_value));
+  }
+}
+
+// -----------------------------------------------------------------------------
+void bg_strings_constructor(bg_Strings* strings, size_t start_size) {
+  strings->_struct_type = BG_STRUCTTYPE_STRINGS;
+  strings->_destructor = bg_strings_destructor;
+
+  bg_hash_constructor(&strings->_hash_map, start_size);
+}
+
+// -----------------------------------------------------------------------------
+void bg_strings_destructor(void* strings_void) {
+  bg_Strings* strings = (bg_Strings*)strings_void;
+  bg_assert(strings->_struct_type == BG_STRUCTTYPE_STRINGS);
+
+  strings->_hash_map._destructor((void*)(&strings->_hash_map));
+}
+
+// -----------------------------------------------------------------------------
+// if the string has previously been interned, return a pointer to it
+// otherwise copy the string, intern it, and return a pointer to it
+const char* bg_strings_intern(bg_Strings* strings, bool ref_value, const char* string) {
+  bg_assert(strings->_struct_type == BG_STRUCTTYPE_STRINGS);
+  static const char* empty_string = "";
+  if (string == NULL || string[0] == '\0') {
+    return empty_string;
+  }
+
+  const uint64_t key_hash = bg_crc64_calc(string, strlen(string), 0);
+  bg_StringValue* hash_value = (bg_StringValue*) bg_hash_find(&strings->_hash_map, key_hash);
+  if (hash_value) {
+    return hash_value->_string_value;
+  } else {  // insert
+    bg_StringValue* string_value = calloc(1, sizeof(bg_StringValue));
+    bg_internal_verify(string_value);
+    bg_string_value_constructor(string_value, ref_value, string);
+    bg_hash_insert(&strings->_hash_map, key_hash, string_value);
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -480,7 +550,7 @@ void create_temp_file_name(char *buffer, const int buffer_size,
   const size_t path_len = strlen(path);
   const bool add_path_sep = (path_len > 0 && path[path_len - 1] != '/');
   uint16_t salt;
-  get_random_bytes((uint8_t *) &salt, sizeof(salt));
+  bg_get_random_bytes((uint8_t *) &salt, sizeof(salt));
 
   const uint32_t rand_uint = rand() % 10000;
   const int chars_written =
@@ -830,7 +900,7 @@ void bg_program_constructor(bg_Program *program,
 
 // -----------------------------------------------------------------------------
 void bg_program_destructor(void *program_void) {
-  bg_Program* program = (bg_Program)program_void;
+  bg_Program* program = (bg_Program*)program_void;
   // TODO - log program info
 
   bg_delete_sinks();
@@ -849,7 +919,7 @@ void bg_thread_constructor(bg_Thread *program,
 }
 
 // -----------------------------------------------------------------------------
-void bg_thread_destructor(bg_Thread *program) {
+void bg_thread_destructor(void *program_void) {
   // TODO
 }
 
@@ -858,12 +928,14 @@ void bg_function_constructor(bg_Function *function,
                              const char *file_name, uint32_t line_number,
                              const char *function_name,
                              const char *function_signature,
-                             const char *subsystem, const char *session) {
+                             const char *subsystem,
+                             const char *session,
+                             const double count) {
   // TODO
 }
 
 // -----------------------------------------------------------------------------
-void bg_function_destructor(bg_Function *function) {
+void bg_function_destructor(void *function_void) {
   // TODO
 }
 
@@ -877,7 +949,7 @@ void bg_numerical_constructor(bg_Numerical *bg_numerical_variable,
 }
 
 // -----------------------------------------------------------------------------
-void bg_numerical_destructor(bg_Numerical *bg_numerical_variable) {
+void bg_numerical_destructor(void *bg_numerical_variable_void) {
   // TODO
 }
 

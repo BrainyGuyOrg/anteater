@@ -73,7 +73,7 @@ extern "C" {
 // -----------------------------------------------------------------------------
 // Record Types
 // -----------------------------------------------------------------------------
-// Major record types have a pointer to a desctructor function
+// Major record types have a pointer to a destructor function
 // as their first member.
 // Their second member is a unique signature for identifying the record type.
 // Constructor functions initialize but do not allocate records.
@@ -85,8 +85,10 @@ typedef void (*bg_Destructor)(void *record);
 
 typedef enum {
   BG_STRUCTTYPE_HASHMAP = 0xDEADBE01,
-  BG_STRUCTTYPE_COUNTERS = 0xDEADBE02,
-  BG_STRUCTTYPE_COUNTERHANDLES = 0xDEADBE03,
+  BG_STRUCTTYPE_STRINGS = 0xDEADBE02,
+  BG_STRUCTTYPE_STRINGVALUE = 0xDEADBE03,
+  BG_STRUCTTYPE_COUNTERS = 0xDEADBE04,
+  BG_STRUCTTYPE_COUNTERHANDLES = 0xDEADBE05,
 
   BG_STRUCTTYPE_COLUMNINFO = 0xDEADBE11,
   BG_STRUCTTYPE_COLUMNDATA = 0xDEADBE12,
@@ -169,8 +171,41 @@ bg_map_enlarge(bg_HashMap *map);
 extern void *
 bg_hash_find(bg_HashMap *map, uint64_t key_hash);
 
+// value must be a struct
+// takes ownership of the value and calls the destructor function in the struct
 extern void
 bg_hash_insert(bg_HashMap *map, uint64_t key_hash, void *value);
+
+// -----------------------------------------------------------------------------
+// Strings Hash
+// -----------------------------------------------------------------------------
+typedef struct bg_StringValue_struct bg_StringValue;
+typedef struct bg_StringValue_struct {
+  bg_Destructor _destructor;
+  bg_StructType _struct_type;
+
+  bool _ref_value;   // false=need to malloc and free
+  const char* _string_value;
+} bg_StringValue;
+
+typedef struct bg_Strings_struct bg_Strings;
+typedef struct bg_Strings_struct {
+  bg_Destructor _destructor;
+  bg_StructType _struct_type;
+
+  bg_HashMap _hash_map;
+} bg_Strings;
+
+// -----------------------------------------------------------------------------
+void bg_string_value_constructor(bg_StringValue* string_value, bool ref_value, const char* value);
+void bg_string_value_destructor(void* string_value_void);
+
+void bg_strings_constructor(bg_Strings* strings, size_t start_size);
+void bg_strings_destructor(void* strings_void);
+
+// if the string has previously been interned, return a pointer to it
+// otherwise copy the string, intern it, and return a pointer to it
+const char* bg_strings_intern(bg_Strings* strings, bool ref_value, const char* string);
 
 // -----------------------------------------------------------------------------
 // Assertions
@@ -637,26 +672,28 @@ bg_function_constructor(bg_Function *bg_function_variable,
                         const char *file_name, uint32_t line_number,
                         const char *function_name,
                         const char *function_signature,
-                        const char *subsystem, const char *session);
+                        const char *subsystem,
+                        const char *session,
+                        double count);
 
 extern void
 bg_function_destructor(void *function_void);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_PROFILE)
-#define bg_function(subsystem, session, code)                                  \
+#define bg_function(subsystem, session, count, code)                           \
   { code }
 #elif defined(BG_C_TRY_FINALLY)
-#define bg_function(subsystem, session, code)                                  \
+#define bg_function(subsystem, session, count, code)                           \
   { code }
 #warn No Microsoft C++ support yet
 #elif defined(BG_CLEANUP_ATTRIBUTE)
-#define bg_function(subsystem, session, code)                                  \
+#define bg_function(subsystem, session, count, code)                           \
   bg_Function __attribute__((cleanup(bg_function_destructor)))                 \
   bg_function_variable;                                                        \
   bg_function_constructor(&bg_function_variable, BG_FILE_NAME, BG_LINE_NUMBER, \
                           BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, subsystem,  \
-                          session);                                            \
+                          session, count);                                     \
   { code }
 #endif
 
@@ -759,7 +796,7 @@ bg_run_test(const char *suite_name, const char *test_name);
 
 // -----------------------------------------------------------------------------
 #if !defined(BG_BUILD_MODE_TEST)
-#define bg_test(name, code) /* nothing */
+#define bg_test(suite, name, code) /* nothing */
 #else
 #define bg_test(suite, name, code)                                             \
   static int bg_test_##suite_##name() {                                        \

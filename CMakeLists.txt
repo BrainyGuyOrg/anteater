@@ -107,7 +107,7 @@ endif()
 
 # -----------------------------------------------------------------------------
 #add_compile_definitions(PRIVATE BG_BUILD_MODE_PROFILE=1)
-add_compile_definitions(PRIVATE BG_BUILD_MODE_TEST=1)
+add_compile_definitions(PRIVATE BG_BUILD_MODE_PROFILE=1)
 
 # -----------------------------------------------------------------------------
 if(BUILD_TESTING)

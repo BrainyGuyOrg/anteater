@@ -50,7 +50,7 @@
 enum {NUM_ITERATIONS = 100, CPU_CACHE_LINE_SIZE = 64};
 
 // -----------------------------------------------------------------------------
-inline void
+void
 matrix_set_double(double* matrix, const size_t rows, const size_t cols,
                   const size_t row, const size_t col, const double new_value) {
   ((void)rows);
@@ -58,7 +58,7 @@ matrix_set_double(double* matrix, const size_t rows, const size_t cols,
 }
 
 // -----------------------------------------------------------------------------
-inline double
+double
 matrix_get_double(double* matrix, const size_t rows, const size_t cols,
                   const size_t row, const size_t col) {
   ((void)rows);
@@ -81,7 +81,7 @@ void
 matrix_zeros_double(double* matrix, const size_t rows, const size_t cols) {
   for (size_t row = 0; row < rows; ++row) {
     for (size_t col = 0; col < cols; ++col) {
-      matrix_set_double(rows, cols, matrix, row, col, 0.0);
+      matrix_set_double(matrix, rows, cols, row, col, 0.0);
     }
   }
 }
