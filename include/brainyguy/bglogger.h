@@ -146,6 +146,7 @@ typedef struct bg_HashMap_struct bg_HashMap;
 typedef struct bg_HashMap_struct {
   bg_Destructor _destructor;
   bg_StructType _struct_type;
+  mtx_t _mutex;
   size_t _size;   // number of used entries
   size_t _allocated;   // total space reserved for entries
   bg_HashMapEntry *_entries;
@@ -551,6 +552,7 @@ typedef struct bg_Program_struct {
 } bg_Program;
 
 extern bg_Program* g_bg_program;
+extern bg_Strings* g_bg_strings;
 
 // -----------------------------------------------------------------------------
 extern void bg_program_constructor(bg_Program *program);

@@ -308,6 +308,8 @@ uint64_t bg_crc64_calc(const uint8_t *buf, size_t size, uint64_t crc) {
 void bg_hash_constructor(bg_HashMap *map, size_t start_size) {
   map->_destructor = bg_hash_destructor;
   map->_struct_type = BG_STRUCTTYPE_HASHMAP;
+  const int mutex_init_status = mtx_init(&map->_mutex, mtx_plain);
+  bg_internal_verify(mutex_init_status == thrd_success);
   map->_size = 0;
   map->_entries = calloc(start_size, sizeof(bg_HashMapEntry));
   map->_allocated = start_size;
@@ -334,16 +336,24 @@ void bg_hash_destructor(void *map) {
 // version of insert() without the size check to avoid a mutual recursion
 void bg_hash_internal_insert(bg_HashMap *map, uint64_t key_hash, void *value) {
   uint64_t hash = key_hash;
-  size_t index = hash & (map->_size - 1);
+  size_t index = hash & (map->_allocated - 1);
   while (map->_entries[index]._key_hash != key_hash &&
-      map->_entries[index]._value != NULL) {
+         map->_entries[index]._value != NULL) {
     hash = bg_crc64_calc((uint8_t *) &hash, sizeof(hash), 0);
-    index = hash & (map->_size - 1);
+    index = hash & (map->_allocated - 1);
   }
 
-  bg_assert(map->_entries[index]._value == NULL);
-  map->_entries[index]._key_hash = key_hash;
-  map->_entries[index]._value = value;
+  bg_assert(map->_entries[index]._key_hash == key_hash || map->_entries[index]._value == NULL);
+  if (map->_entries[index]._key_hash == key_hash) {   // replace value
+    bg_Destructor destructor = (bg_Destructor) map->_entries[index]._value;
+    destructor(map->_entries[index]._value);
+    free(map->_entries[index]._value);
+    map->_entries[index]._value = value;
+  } else {   // insert new entry
+    map->_entries[index]._key_hash = key_hash;
+    map->_entries[index]._value = value;
+    ++map->_entries[index]._size;
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -378,11 +388,17 @@ void *bg_hash_find(bg_HashMap *map, uint64_t key_hash) {
 
 // -----------------------------------------------------------------------------
 void bg_hash_insert(bg_HashMap *map, uint64_t key_hash, void *value) {
+  const int mutex_lock_status = mtx_lock(&map->_mutex);
+  bg_internal_verify(mutex_lock_status == thrd_success);
+
   if (map->_size >= (map->_allocated >> 1)) {
     bg_map_enlarge(map);
   }
 
   bg_hash_internal_insert(map, key_hash, value);
+
+  const int mutex_unlock_status = mtx_unlock(&map->_mutex);
+  bg_internal_verify(mutex_unlock_status == thrd_success);
 }
 
 // -----------------------------------------------------------------------------
@@ -879,8 +895,9 @@ bg_ColumnData *add_column_data_string(bg_ColumnData *previous_column_data,
 // -----------------------------------------------------------------------------
 // Loggers
 // -----------------------------------------------------------------------------
-bg_Program* g_bg_program;
 static once_flag g_bg_program_flag = ONCE_FLAG_INIT;
+bg_Program* g_bg_program;
+bg_Strings* g_bg_strings;
 
 // -----------------------------------------------------------------------------
 void bg_program_constructor(bg_Program *program) {
@@ -891,6 +908,10 @@ void bg_program_constructor(bg_Program *program) {
   bg_crc64_constructor(g_crc64_table);   // initialize CRC64 hash table
   set_program_name();
   create_base_log_dir();
+
+  g_bg_strings = calloc(1, sizeof(bg_Strings));
+  bg_internal_verify(g_bg_strings);
+  bg_strings_constructor(g_bg_strings, 256);
 }
 
 // -----------------------------------------------------------------------------
@@ -906,8 +927,6 @@ void bg_program_destructor(void *program_void) {
 void bg_program_once() {
   g_bg_program = calloc(1, sizeof(bg_Program));
   bg_internal_verify(g_bg_program);
-  g_bg_program->_destructor = bg_program_destructor;
-  g_bg_program->_struct_type = BG_STRUCTTYPE_PROGRAM;
   bg_program_constructor(g_bg_program);
 }
 
@@ -928,14 +947,32 @@ void bg_function_constructor(bg_Function *function,
   }
 
   function->_destructor = bg_function_destructor;
-  function->_struct_type = BG_STRUCTTYPE_PROGRAM;
+  function->_struct_type = BG_STRUCTTYPE_FUNCTION;
 
+  function->_file_name = file_name;
+  function->_line_number = line_number;
+  function->_function_name = function_name;
+  function->_function_signature = function_signature;
 
+  function->_subsystem = strdup(subsystem ? subsystem : "");
+  function->_session = strdup(session ? session : "");
+  function->_count = count;
+
+  // TODO: PMCs
+
+  function->_next = g_bg_function;
+  g_bg_function = function;
 }
 
 // -----------------------------------------------------------------------------
 void bg_function_destructor(void *function_void) {
-  // TODO
+  bg_Function* function = (bg_Function*)function_void;
+  bg_assert(function->_struct_type == BG_STRUCTTYPE_FUNCTION);
+
+  // TODO: log function
+
+  free(function->_subsystem);
+  free(function->_session);
 }
 
 // -----------------------------------------------------------------------------
