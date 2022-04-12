@@ -5,6 +5,9 @@
 
 A logging, profiling, and testing library for C and C++.
 
+WARNING: This is very much a work in progress right now.
+But development is moving quickly!
+
 == Features
 
 * Integrated logging, testing, and profiling library

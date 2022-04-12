@@ -547,115 +547,23 @@ typedef struct bg_Program_struct bg_Program;
 typedef struct bg_Program_struct {
   bg_Destructor _destructor;
   bg_StructType _struct_type;
-  double _ts_start;
 
-  const char *_file_name;
-  uint32_t _line_number;
-  const char *_function_name;
-  const char *_function_signature;
-
-  int _argc;
-  const char **_argv;
-  const char **_envp;
 } bg_Program;
 
-extern void
-bg_program_constructor(bg_Program *bg_program_variable,
-                       const char *file_name, uint32_t line_number,
-                       const char *function_name,
-                       const char *function_signature, int argc,
-                       const char **argv, const char **envp);
-
-extern void
-bg_program_destructor(void *bg_program_variable);
+extern bg_Program* g_bg_program;
 
 // -----------------------------------------------------------------------------
-#if !defined(BG_BUILD_MODE_PROFILE)
-#define bg_program(argc, argv, envp, code)                                     \
-  { code }
-#elif defined(BG_C_TRY_FINALLY)
-#define bg_program(argc, argv, envp, code)                                     \
-  {                                                                            \
-    Bg_Program bg_program_variable;                                            \
-    bg_program_constructor(&bg_program_variable, BG_FILE_NAME, BG_LINE_NUMBER, \
-                           BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, argc,      \
-                           argv, envp);                                        \
-    __try {                                                                    \
-      code                                                                     \
-    } __finally {                                                              \
-      bg_program_destructor(&bg_program_variable);                             \
-    }                                                                          \
-  }
-#elif defined(BG_CLEANUP_ATTRIBUTE)
-#define bg_program(argc, argv, envp, code)                                     \
-  bg_Program __attribute__((cleanup(bg_program_destructor)))                   \
-  bg_program_variable;                                                         \
-  bg_program_constructor(&bg_program_variable, BG_FILE_NAME, BG_LINE_NUMBER,   \
-                         BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, argc, argv,  \
-                         envp);                                                \
-  { code }
-#endif
-
-// -----------------------------------------------------------------------------
-typedef struct bg_Thread_struct bg_Thread;
-typedef struct bg_Thread_struct {
-  bg_Destructor _destructor;
-  bg_StructType _struct_type;
-
-  double _ts_start;
-  const char *_file_name;
-  uint32_t _line_number;
-  const char *_function_name;
-  const char *_function_signature;
-
-  const char *_subsystem;
-  const char *_session;
-} bg_Thread;
-
-extern void
-bg_thread_constructor(bg_Thread *bg_program_variable,
-                      const char *file_name, uint32_t line_number,
-                      const char *function_name,
-                      const char *function_signature,
-                      const char *subsystem, const char *session);
-
-extern void
-bg_thread_destructor(void *thread_void);
-
-// -----------------------------------------------------------------------------
-#if !defined(BG_BUILD_MODE_PROFILE)
-#define bg_thread(argc, argv, envp, code)                                      \
-  { code }
-#elif defined(BG_C_TRY_FINALLY)
-#define bg_thread(argc, argv, envp, code)                                      \
-  {                                                                            \
-    bg_Thread bg_thread_variable;                                              \
-    bg_thread_constructor(&bg_thread_variable, BG_FILE_NAME, BG_LINE_NUMBER,   \
-                          BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, subsystem,  \
-                          session);                                            \
-    __try {                                                                    \
-      code                                                                     \
-    } __finally {                                                              \
-      bg_thread_destructor(&bg_thread_variable);                               \
-    }                                                                          \
-  }
-#elif defined(BG_CLEANUP_ATTRIBUTE)
-#define bg_thread(argc, argv, envp, code)                                      \
-  bg_Thread __attribute__((cleanup(bg_thread_destructor))) bg_thread_variable; \
-  bg_thread_constructor(&bg_thread_variable, BG_FILE_NAME, BG_LINE_NUMBER,     \
-                        BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, subsystem,    \
-                        session);                                              \
-  { code }
-#endif
+extern void bg_program_constructor(bg_Program *program);
+extern void bg_program_destructor(void *program_void);
+extern void bg_program_once();
 
 // -----------------------------------------------------------------------------
 typedef struct bg_Function_struct bg_Function;
 typedef struct bg_Function_struct {
   bg_Destructor _destructor;
   bg_StructType _struct_type;
-  bg_Function *_next;
+  bg_Function *_next;   // parent function
 
-  double _ts_start;
   const char *_file_name;
   uint32_t _line_number;
   const char *_function_name;
@@ -663,10 +571,10 @@ typedef struct bg_Function_struct {
 
   const char *_subsystem;
   const char *_session;
-
-  /* parent function pointer */
+  double count;
 } bg_Function;
 
+// -----------------------------------------------------------------------------
 extern void
 bg_function_constructor(bg_Function *bg_function_variable,
                         const char *file_name, uint32_t line_number,
@@ -675,7 +583,6 @@ bg_function_constructor(bg_Function *bg_function_variable,
                         const char *subsystem,
                         const char *session,
                         double count);
-
 extern void
 bg_function_destructor(void *function_void);
 
@@ -690,64 +597,10 @@ bg_function_destructor(void *function_void);
 #elif defined(BG_CLEANUP_ATTRIBUTE)
 #define bg_function(subsystem, session, count, code)                           \
   bg_Function __attribute__((cleanup(bg_function_destructor)))                 \
-  bg_function_variable;                                                        \
+              bg_function_variable;                                            \
   bg_function_constructor(&bg_function_variable, BG_FILE_NAME, BG_LINE_NUMBER, \
                           BG_FUNCTION_NAME, BG_FUNCTION_SIGNATURE, subsystem,  \
                           session, count);                                     \
-  { code }
-#endif
-
-// -----------------------------------------------------------------------------
-typedef struct bg_Numerical_struct bg_Numerical;
-typedef struct bg_Numerical_struct {
-  bg_Destructor _destructor;
-  bg_StructType _struct_type;
-
-  double _ts_start;
-  const char *_file_name;
-  uint32_t _line_number;
-  const char *_function_name;
-  const char *_function_signature;
-
-  bool _is_ratio;
-  const char *_label;
-  double _value;
-} bg_Numerical;
-
-extern void
-bg_numerical_constructor(bg_Numerical *bg_numerical_variable,
-                         const char *file_name, uint32_t line_number,
-                         const char *function_name,
-                         const char *function_signature, bool is_ratio,
-                         const char *label, double value);
-
-extern void
-bg_numerical_destructor(void *numerical_void);
-
-// -----------------------------------------------------------------------------
-#if !defined(BG_BUILD_MODE_PROFILE)
-#define bg_interval(label, value, code)                                        \
-  { code }
-#define bg_ratio(label, value, code)                                           \
-  { code }
-#elif defined(BG_C_TRY_FINALLY)
-#define bg_interval(label, value, code) ((void)0)
-#define bg_ratio(label, value, code) ((void)0)
-#warn No Microsoft C++ support yet
-#elif defined(BG_CLEANUP_ATTRIBUTE)
-#define bg_interval(label, value, code)                                        \
-  bg_Numerical __attribute__((cleanup(bg_numerical_destructor)))               \
-  bg_numerical_variable;                                                       \
-  bg_numerical_constructor(&bg_numerical_variable, BG_FILE_NAME,               \
-                           BG_LINE_NUMBER, BG_FUNCTION_NAME,                   \
-                           BG_FUNCTION_SIGNATURE, false, label, value);        \
-  { code }
-#define bg_ratio(label, value, code)                                           \
-  bg_Numerical __attribute__((cleanup(bg_numerical_destructor)))               \
-  bg_numerical_variable;                                                       \
-  bg_numerical_constructor(&bg_numerical_variable, BG_FILE_NAME,               \
-                           BG_LINE_NUMBER, BG_FUNCTION_NAME,                   \
-                           BG_FUNCTION_SIGNATURE, true, label, value);         \
   { code }
 #endif
 

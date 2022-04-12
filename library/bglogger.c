@@ -201,12 +201,13 @@ extern char *program_invocation_name;
 extern char *program_invocation_short_name;
 #endif
 
-void set_program_name(const char *argv0) {
+void set_program_name() {
 #if defined(BG_PLATFORM_LINUX)
   g_program_path_name = strdup(program_invocation_name);
   g_program_base_name = strdup(program_invocation_short_name);
 #elif defined(BG_PLATFORM_WINDOWS)
-  g_program_path_name = strdup(argv0);
+  // https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamea
+  // g_program_path_name = strdup(argv0);
 
   char *last_slash = strrchr(argv0, '/');
   g_program_base_name = strdup(last_slash ? last_slash + 1 : argv0);
@@ -876,25 +877,19 @@ bg_ColumnData *add_column_data_string(bg_ColumnData *previous_column_data,
 }
 
 // -----------------------------------------------------------------------------
-void bg_program_constructor(bg_Program *program,
-                            const char *file_name, const uint32_t line_number,
-                            const char *function_name,
-                            const char *function_signature, const int argc,
-                            const char **argv, const char **envp) {
+// Loggers
+// -----------------------------------------------------------------------------
+bg_Program* g_bg_program;
+static once_flag g_bg_program_flag = ONCE_FLAG_INIT;
+
+// -----------------------------------------------------------------------------
+void bg_program_constructor(bg_Program *program) {
   program->_destructor = bg_program_destructor;
   program->_struct_type = BG_STRUCTTYPE_PROGRAM;
-  program->_ts_start = get_timestamp_now();
-  program->_file_name = file_name;
-  program->_line_number = line_number;
-  program->_function_name = function_name;
-  program->_function_signature = function_signature;
-  program->_argc = argc;
-  program->_argv = argv;
-  program->_envp = envp;
 
   srand(time(NULL)); // seed random number generator
   bg_crc64_constructor(g_crc64_table);   // initialize CRC64 hash table
-  set_program_name(argv[0]);
+  set_program_name();
   create_base_log_dir();
 }
 
@@ -907,49 +902,39 @@ void bg_program_destructor(void *program_void) {
 }
 
 // -----------------------------------------------------------------------------
-thread_local bg_Thread *g_bg_Thread;
-
-// -----------------------------------------------------------------------------
-void bg_thread_constructor(bg_Thread *program,
-                           const char *file_name, uint32_t line_number,
-                           const char *function_name,
-                           const char *function_signature,
-                           const char *subsystem, const char *session) {
-  // TODO
+// guaranteed to be called only once per program run
+void bg_program_once() {
+  g_bg_program = calloc(1, sizeof(bg_Program));
+  bg_internal_verify(g_bg_program);
+  g_bg_program->_destructor = bg_program_destructor;
+  g_bg_program->_struct_type = BG_STRUCTTYPE_PROGRAM;
+  bg_program_constructor(g_bg_program);
 }
 
 // -----------------------------------------------------------------------------
-void bg_thread_destructor(void *program_void) {
-  // TODO
-}
+thread_local bg_Function *g_bg_function;
 
 // -----------------------------------------------------------------------------
 void bg_function_constructor(bg_Function *function,
-                             const char *file_name, uint32_t line_number,
+                             const char *file_name,
+                             const uint32_t line_number,
                              const char *function_name,
                              const char *function_signature,
                              const char *subsystem,
                              const char *session,
                              const double count) {
-  // TODO
+  if (!g_bg_program) {
+    call_once(&g_bg_program_flag, bg_program_once);
+  }
+
+  function->_destructor = bg_function_destructor;
+  function->_struct_type = BG_STRUCTTYPE_PROGRAM;
+
+
 }
 
 // -----------------------------------------------------------------------------
 void bg_function_destructor(void *function_void) {
-  // TODO
-}
-
-// -----------------------------------------------------------------------------
-void bg_numerical_constructor(bg_Numerical *bg_numerical_variable,
-                              const char *file_name, uint32_t line_number,
-                              const char *function_name,
-                              const char *function_signature, bool is_ratio,
-                              const char *label, const double value) {
-  // TODO
-}
-
-// -----------------------------------------------------------------------------
-void bg_numerical_destructor(void *bg_numerical_variable_void) {
   // TODO
 }
 
