@@ -8,6 +8,14 @@ A logging, profiling, and testing library for C and C++.
 WARNING: This is very much a work in progress right now.
 But development is moving quickly!
 
+== About Me
+
+¡Hola! I'm a C and C++ computer programmer with leadership experience.
+My work usually focuses in the areas of software performance optimization
+and functional programming.
+You can find me on https://www.linkedin.com/in/creyes123/[LinkedIn].
+You can also reach me directly via mailto:creyes123@yahoo.com[Email].
+
 == Features
 
 * Integrated logging, testing, and profiling library

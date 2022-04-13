@@ -264,6 +264,39 @@ static void create_base_log_dir() {
 }
 
 // -----------------------------------------------------------------------------
+// Readers-Writer Lock
+// -----------------------------------------------------------------------------
+void bg_rwlock_constructor(bg_RWLock* lock) {
+
+  // pthread_rwlockattr_setkind_np
+}
+
+// -----------------------------------------------------------------------------
+void bg_rwlock_destructor(void* lock) {
+
+}
+
+// -----------------------------------------------------------------------------
+void bg_rwlock_read_lock(bg_RWLock* lock) {
+
+}
+
+// -----------------------------------------------------------------------------
+void bg_rwlock_read_unlock(bg_RWLock* lock) {
+
+}
+
+// -----------------------------------------------------------------------------
+void bg_rwlock_write_lock(bg_RWLock* lock) {
+
+}
+
+// -----------------------------------------------------------------------------
+void bg_rwlock_write_unlock(bg_RWLock* lock) {
+
+}
+
+// -----------------------------------------------------------------------------
 // CRC64
 // -----------------------------------------------------------------------------
 // modified from xz library library/liblzma/check/crc64_small.c
@@ -352,7 +385,7 @@ void bg_hash_internal_insert(bg_HashMap *map, uint64_t key_hash, void *value) {
   } else {   // insert new entry
     map->_entries[index]._key_hash = key_hash;
     map->_entries[index]._value = value;
-    ++map->_entries[index]._size;
+    ++map->_size;
   }
 }
 
@@ -971,8 +1004,8 @@ void bg_function_destructor(void *function_void) {
 
   // TODO: log function
 
-  free(function->_subsystem);
-  free(function->_session);
+  free((void*)function->_subsystem);
+  free((void*)function->_session);
 }
 
 // -----------------------------------------------------------------------------

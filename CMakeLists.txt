@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.21)
 project(BgLogger
   VERSION 0.1.1
   DESCRIPTION "A profiling, logging, and testing library for C and C++"
-  LANGUAGES C)
+  LANGUAGES C CXX)
 
 include(CTest)
 
@@ -61,6 +61,19 @@ target_include_directories(matrix_mult_c
 )
 
 target_link_libraries(matrix_mult_c PUBLIC bglogger)
+
+# -------------------------------------------------------------------
+file(GLOB THREADS_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/sample/threads.cpp")
+add_executable(threads "${THREADS_SOURCE_LIST}")
+
+target_include_directories(threads
+    PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${BgLogger_SOURCE_DIR}/include>
+)
+
+target_compile_features(threads PRIVATE cxx_std_20)
+target_link_libraries(threads PUBLIC bglogger)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------

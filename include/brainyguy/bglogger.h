@@ -35,8 +35,17 @@ extern "C" {
 #include <threads.h>
 #include <time.h>
 
+#if defined(BG_PLATFORM_LINUX)
+#include <pthread.h>
+#endif
+
 // -----------------------------------------------------------------------------
 // Configuration
+// -----------------------------------------------------------------------------
+#if defined(__STDC_NO_THREADS__)
+#error C11 standard library thread support required.
+#endif
+
 // -----------------------------------------------------------------------------
 #if defined(BG_COMPILER_GCC) || defined(BG_COMPILER_CLANG) || \
     defined(BG_COMPILER_ICC)
@@ -89,6 +98,7 @@ typedef enum {
   BG_STRUCTTYPE_STRINGVALUE = 0xDEADBE03,
   BG_STRUCTTYPE_COUNTERS = 0xDEADBE04,
   BG_STRUCTTYPE_COUNTERHANDLES = 0xDEADBE05,
+  BG_STRUCTTYPE_RWLOCK = 0xDEADBE06,
 
   BG_STRUCTTYPE_COLUMNINFO = 0xDEADBE11,
   BG_STRUCTTYPE_COLUMNDATA = 0xDEADBE12,
@@ -108,6 +118,30 @@ typedef enum {
 extern void bg_get_random_bytes(uint8_t *buffer, int buffer_size);
 extern bool bg_approx_equal_double(double a, double b);
 extern uint64_t bg_get_next_power2(uint64_t value);
+
+// -----------------------------------------------------------------------------
+// Readers-Writer Lock
+// -----------------------------------------------------------------------------
+typedef struct bg_RWLock_struct bg_RWLock;
+typedef struct bg_RWLock_struct {
+  bg_Destructor _destructor;
+  bg_StructType _struct_type;
+
+#if defined(BG_PLATFORM_LINUX)
+  //pthread_rwloc_t _rwloc;
+#else
+  // https://docs.microsoft.com/en-us/windows/win32/sync/slim-reader-writer--srw--locks
+  // POSIX has one unlock function for read or write locks
+  // Windows has separate unlock functions for read and write locks
+#endif
+} bg_RWLock;
+
+extern void bg_rwlock_constructor(bg_RWLock* lock);
+extern void bg_rwlock_destructor(void* lock);
+extern void bg_rwlock_read_lock(bg_RWLock* lock);
+extern void bg_rwlock_read_unlock(bg_RWLock* lock);
+extern void bg_rwlock_write_lock(bg_RWLock* lock);
+extern void bg_rwlock_write_unlock(bg_RWLock* lock);
 
 // -----------------------------------------------------------------------------
 // CRC64-ECMA
@@ -573,7 +607,7 @@ typedef struct bg_Function_struct {
 
   const char *_subsystem;
   const char *_session;
-  double count;
+  double _count;
 } bg_Function;
 
 // -----------------------------------------------------------------------------

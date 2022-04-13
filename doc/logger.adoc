@@ -320,3 +320,16 @@ LEVEL3_CACHE_LINESIZE              64
 LEVEL4_CACHE_SIZE
 LEVEL4_CACHE_ASSOC
 LEVEL4_CACHE_LINESIZE
+
+== Microsoft C/C++ language conformance by Visual Studio version
+https://docs.microsoft.com/en-us/cpp/overview/visual-cpp-language-conformance
+https://clang.llvm.org/docs/MSVCCompatibility.html
+https://clang.llvm.org/docs/UsersManual.html#clang-cl
+https://gcc.gnu.org/projects/cxx-status.html
+https://gcc.gnu.org/onlinedocs/libstdc++/manual/status.html
+https://clang.llvm.org/cxx_status.html
+
+== Perf Tutorial
+http://sandsoftwaresound.net/perf/perf-tutorial-hot-spots/
+http://sandsoftwaresound.net/perf/perf-tut-count-hw-events/
+http://sandsoftwaresound.net/perf/perf-tut-profile-hw-events/
