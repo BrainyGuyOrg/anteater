@@ -333,3 +333,11 @@ https://clang.llvm.org/cxx_status.html
 http://sandsoftwaresound.net/perf/perf-tutorial-hot-spots/
 http://sandsoftwaresound.net/perf/perf-tut-count-hw-events/
 http://sandsoftwaresound.net/perf/perf-tut-profile-hw-events/
+
+== C++ logging libraries
+https://github.com/gabime/spdlog/wiki/Default-logger
+https://github.com/amrayn/easyloggingpp
+https://github.com/SergiusTheBest/plog
+https://github.com/emilk/loguru
+https://logging.apache.org/log4cxx/latest_stable/
+https://github.com/google/glog
