@@ -512,10 +512,19 @@ class ProfileRecord {
   {
   }
 
+  ProfileRecord& operator+=(const ProfileRecord& rhs)
+  {
+    _sum_of_count += rhs._sum_of_count;
+    _linux_event_data += rhs._linux_event_data;
+    return *this;
+  }
+
  private:
   const std::string_view _parent_function_signature;
   const std::string_view _function_signature;
-  uint64_t _function_call_count;
+  uint64_t _function_calls;
+  double _sum_of_count;
+  LinuxEventsData _linux_event_data;
 };
 
 // ---------------------------------------------------------------------------
@@ -547,9 +556,16 @@ public:
   }
 
  private:
+  static std::unordered_map<std::pair<std::string_view,std::string_view>, ProfileRecord> _profile_map;
+  static std::shared_mutex _map_mutex;
+
   static thread_local inline std::stack<Function<build_mode>> _functions;
   static thread_local inline std::stack<std::string> _subsystems;
   static thread_local inline std::stack<std::string> _sessions;
+
+  static void upsert_profile_map(const ProfileRecord& profile_record) {
+
+  }
 
   void check_create_program_thread()
   {
@@ -566,6 +582,8 @@ public:
       Program::check_destroy();
     }
   }
+
+  static
 };
 
   // std::unordered_map<pair, int, pair_hash> unordered_map
