@@ -13,42 +13,43 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
+set(CMAKE_CXX_STANDARD 20)
 
-project(BgLogger
+project(Anteater
   VERSION 0.1.1
-  DESCRIPTION "A profiling, logging, and testing library for C and C++"
-  LANGUAGES C CXX)
+  DESCRIPTION "A profiling, logging, and testing library for C++ and C"
+  LANGUAGES CXX C)
 
 include(CTest)
 
 # -----------------------------------------------------------------------------
-file(GLOB LIB_HEADER_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/include/brainyguy/*.h")
-file(GLOB LIB_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/library/*.c")
+file(GLOB LIB_HEADER_LIST CONFIGURE_DEPENDS "${Anteater_SOURCE_DIR}/include/brainyguy/*.h")
+file(GLOB LIB_SOURCE_LIST CONFIGURE_DEPENDS "${Anteater_SOURCE_DIR}/library/*.c")
 
-add_library(bglogger SHARED ${LIB_HEADER_LIST} ${LIB_SOURCE_LIST})
+add_library(anteater SHARED ${LIB_HEADER_LIST} ${LIB_SOURCE_LIST})
 
 # -----------------------------------------------------------------------------
-target_include_directories(bglogger
+target_include_directories(anteater
     PUBLIC
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${BgLogger_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${Anteater_SOURCE_DIR}/include>
 )
 
-target_compile_options(bglogger PRIVATE -Werror)
-target_compile_features(bglogger PRIVATE c_std_11)
-target_link_libraries(bglogger PUBLIC m)
+target_compile_options(anteater PRIVATE -Werror)
+target_compile_features(anteater PRIVATE c_std_11)
+target_link_libraries(anteater PUBLIC m)
 
 # -------------------------------------------------------------------
-file(GLOB TEST_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/test/*.c")
-add_executable(bglogger_test "${TEST_SOURCE_LIST}")
+file(GLOB TEST_SOURCE_LIST CONFIGURE_DEPENDS "${Anteater_SOURCE_DIR}/test/*.c")
+add_executable(anteater_test "${TEST_SOURCE_LIST}")
 
-target_include_directories(bglogger_test
+target_include_directories(anteater_test
     PUBLIC
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${BgLogger_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${Anteater_SOURCE_DIR}/include>
 )
 
-target_link_libraries(bglogger_test PUBLIC bglogger)
+target_link_libraries(anteater_test PUBLIC anteater)
 
 # -------------------------------------------------------------------
 file(GLOB MAT_MULT_C_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/sample/matrix_mult.c")
@@ -57,23 +58,23 @@ add_executable(matrix_mult_c "${MAT_MULT_C_SOURCE_LIST}")
 target_include_directories(matrix_mult_c
     PUBLIC
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${BgLogger_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${Anteater_SOURCE_DIR}/include>
 )
 
-target_link_libraries(matrix_mult_c PUBLIC bglogger)
+target_link_libraries(matrix_mult_c PUBLIC anteater)
 
 # -------------------------------------------------------------------
-file(GLOB THREADS_SOURCE_LIST CONFIGURE_DEPENDS "${BgLogger_SOURCE_DIR}/sample/threads.cpp")
+file(GLOB THREADS_SOURCE_LIST CONFIGURE_DEPENDS "${Anteater_SOURCE_DIR}/sample/threads.cpp")
 add_executable(threads "${THREADS_SOURCE_LIST}")
 
 target_include_directories(threads
     PUBLIC
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${BgLogger_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${Anteater_SOURCE_DIR}/include>
 )
 
 target_compile_features(threads PRIVATE cxx_std_20)
-target_link_libraries(threads PUBLIC bglogger)
+target_link_libraries(threads PUBLIC anteater)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -120,7 +121,7 @@ endif()
 
 # -----------------------------------------------------------------------------
 #add_compile_definitions(PRIVATE BG_BUILD_MODE_PROFILE=1)
-add_compile_definitions(PRIVATE BG_BUILD_MODE_PROFILE=1)
+add_compile_definitions(PRIVATE ANTEATER_BUILD_MODE_PROFILE=1)
 
 # -----------------------------------------------------------------------------
 if(BUILD_TESTING)

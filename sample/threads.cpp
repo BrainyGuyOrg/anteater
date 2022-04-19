@@ -1,4 +1,5 @@
 #include <atomic>
+#include <deque>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -6,6 +7,7 @@
 #include <shared_mutex>
 #include <source_location>
 #include <sstream>
+#include <stack>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -394,10 +396,11 @@ namespace brainyguy {
   class Function
   {
   public:
-    explicit Function(const std::string_view subsystem = "",
-                      const double count = 0.0,
-                      std::string session = "",
-                      const std::source_location& location = std::source_location::current())
+    explicit Function([[maybe_unused]] const std::string_view subsystem = "",
+                      [[maybe_unused]] const double count = 0.0,
+                      [[maybe_unused]] std::string session = "",
+                      [[maybe_unused]] const std::source_location& location =
+                          std::source_location::current())
       requires (build_mode == BuildMode::off)
     {
       std::cerr << "inside Function() none" << std::endl;
@@ -429,8 +432,9 @@ namespace brainyguy {
     }
 
    private:
-    static thread_local inline Function<BG_BUILD_MODE>* g_function;
-    Function* _next;
+    static thread_local inline std::stack<Function<BG_BUILD_MODE>> _functions;
+    static thread_local inline std::stack<std::string> _subsystems;
+    static thread_local inline std::stack<std::string> _sessions;
 
     void check_create_program_thread()
     {

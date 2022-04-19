@@ -42,7 +42,7 @@ https://stackoverflow.com/questions/42088515/perf-event-open-how-to-monitoring-m
 
 == Perf Events
 https://web.eece.maine.edu/~vweaver/projects/perf_events/index.html
-perf_event_open
+man perf_event_open
 
 == NMI hardlock watchdog
 https://www.kernel.org/doc/html/latest/admin-guide/lockup-watchdogs.html
@@ -155,6 +155,8 @@ https://github.com/RRZE-HPC/likwid/wiki/FAQ
 
 == GCC print predefined macros
 gcc -dM -E - < /dev/null
+https://sourceforge.net/p/predef/wiki/Home/
+https://gist.github.com/ax3l/53db9fa8a4f4c21ecc5c4100c0d93c94
 
 == visualization
 https://www.speedscope.app/
