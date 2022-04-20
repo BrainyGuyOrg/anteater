@@ -80,69 +80,103 @@ struct pair_hash
 class LinuxEvent
 {
  public:
-  LinuxEvent() : _is_group(false), _fd_first(-1), _fd_second(-1)  {}
+  LinuxEvent() : _num_events(0) {}
 
   explicit LinuxEvent(const std::string_view name, const uint32_t event_type, const uint64_t event)
   {
     _num_events = 1;
-    _name_first = name;
-    _fd_first = open_event(name, event_type, event, -1);
+    _name1 = name;
+    _fd1 = open_event(name, event_type, event, -1);
   }
 
   explicit LinuxEvent(const std::string_view name1, const uint32_t event_type1, const uint64_t event1,
                       const std::string_view name2, const uint32_t event_type2, const uint64_t event2)
   {
     _num_events = 2;
-    _name_first = name1;
-    _fd_first = open_event(name1, event_type1, event1, -1);
-    _name_second = name2;
-    _fd_second = open_event(name2, event_type2, event2, _fd_first);
+    _name1 = name1;
+    _fd1 = open_event(name1, event_type1, event1, -1);
+    _name2 = name2;
+    _fd2 = open_event(name2, event_type2, event2, _fd1);
 
-    reset_event(name1, _fd_first, true);
+    reset_event(name1, _fd1, true);
+  }
+
+  explicit LinuxEvent(const std::string_view name1, const uint32_t event_type1, const uint64_t event1,
+                      const std::string_view name2, const uint32_t event_type2, const uint64_t event2,
+                      const std::string_view name3, const uint32_t event_type3, const uint64_t event3)
+  {
+    _num_events = 3;
+    _name1 = name1;
+    _fd1 = open_event(name1, event_type1, event1, -1);
+    _name2 = name2;
+    _fd2 = open_event(name2, event_type2, event2, _fd1);
+    _name3 = name3;
+    _fd3 = open_event(name3, event_type3, event3, _fd1);
+
+    reset_event(name1, _fd1, true);
+  }
+
+  explicit LinuxEvent(const std::string_view name1, const uint32_t event_type1, const uint64_t event1,
+                      const std::string_view name2, const uint32_t event_type2, const uint64_t event2,
+                      const std::string_view name3, const uint32_t event_type3, const uint64_t event3,
+                      const std::string_view name4, const uint32_t event_type4, const uint64_t event4)
+  {
+    _num_events = 4;
+    _name1 = name1;
+    _fd1 = open_event(name1, event_type1, event1, -1);
+    _name2 = name2;
+    _fd2 = open_event(name2, event_type2, event2, _fd1);
+    _name3 = name3;
+    _fd3 = open_event(name3, event_type3, event3, _fd1);
+    _name4 = name4;
+    _fd4 = open_event(name4, event_type4, event4, _fd1);
+
+    reset_event(name1, _fd1, true);
   }
 
   ~LinuxEvent() {
-    if (!_is_group) {
-      disable_event(_name_first, _fd_first, false);
-      close_event(_name_first, _fd_first);
-    } else {
-      disable_event(_name_first, _fd_first, true);
-      close_event(_name_second, _fd_second);
-      close_event(_name_first, _fd_first);
+    disable_event(_name1, _fd1, (_num_events > 1));
+
+    switch (_num_events) {
+      case 4: close_event(_name4, _fd4);   /* fall-through */
+      case 3: close_event(_name3, _fd3);   /* fall-through */
+      case 2: close_event(_name2, _fd2);   /* fall-through */
+      case 1: close_event(_name1, _fd1);
     }
   }
 
   void reset_events() {
-    if (!_is_group) {
-      reset_event(_name_first, _fd_first, false);
-    } else {
-      reset_event(_name_first, _fd_first, true);
-    }
+    reset_event(_name1, _fd1, (_num_events > 1));
   }
 
   void enable_events() {
-    if (!_is_group) {
-      enable_event(_name_first, _fd_first, false);
-    } else {
-      enable_event(_name_first, _fd_first, true);
-    }
+    enable_event(_name1, _fd1, (_num_events > 1));
   }
 
-  uint64_t read_event_first() {
-    return read_event(_name_first, _fd_first);
+  uint64_t read_event1() {
+    assert(_num_events >= 1);
+    return read_event(_name1, _fd1);
   }
 
-  uint64_t read_event_second() {
-    assert(_is_group);
-    return read_event(_name_second, _fd_second);;
+  uint64_t read_event2() {
+    assert(_num_events >= 2);
+    return read_event(_name2, _fd2);;
+  }
+
+  uint64_t read_event3() {
+    assert(_num_events >= 3);
+    return read_event(_name3, _fd3);
+  }
+
+  uint64_t read_event4() {
+    assert(_num_events >= 4);
+    return read_event(_name4, _fd4);
   }
 
  private:
     int _num_events;
-    std::string_view _name_first;
-    std::string_view _name_second;
-    int _fd_first;
-    int _fd_second;
+    std::string_view _name1, _name2, _name3, _name4;
+    int _fd1, _fd2, _fd3, _fd4;
 
     static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu,
                                int group_fd, unsigned long flags)
@@ -376,25 +410,25 @@ class LinuxEvents
     LinuxEventsData get_snapshot()
     {
       LinuxEventsData data{};
-      data._fd_sw_cpu_clock = _fd_sw_cpu_clock.read_event_first();
-      data._fd_sw_task_clock = _fd_sw_task_clock.read_event_first();
-      data._fd_sw_page_faults = _fd_sw_page_faults.read_event_first();
-      data._fd_sw_context_switches = _fd_sw_context_switches.read_event_first();
-      data._fd_sw_cpu_migrations = _fd_sw_cpu_migrations.read_event_first();
-      data._fd_sw_page_faults_min = _fd_sw_page_faults_min.read_event_first();
-      data._fd_sw_page_faults_maj = _fd_sw_page_faults_maj.read_event_first();
-      data._fd_sw_alignment_faults = _fd_sw_alignment_faults.read_event_first();
-      data._fd_sw_emulation_faults = _fd_sw_emulation_faults.read_event_first();
+      data._fd_sw_cpu_clock = _fd_sw_cpu_clock.read_event1();
+      data._fd_sw_task_clock = _fd_sw_task_clock.read_event1();
+      data._fd_sw_page_faults = _fd_sw_page_faults.read_event1();
+      data._fd_sw_context_switches = _fd_sw_context_switches.read_event1();
+      data._fd_sw_cpu_migrations = _fd_sw_cpu_migrations.read_event1();
+      data._fd_sw_page_faults_min = _fd_sw_page_faults_min.read_event1();
+      data._fd_sw_page_faults_maj = _fd_sw_page_faults_maj.read_event1();
+      data._fd_sw_alignment_faults = _fd_sw_alignment_faults.read_event1();
+      data._fd_sw_emulation_faults = _fd_sw_emulation_faults.read_event1();
 
-      data._fd_hw_cpu_cycles = _fd_hw_cpu_cycles_instr_group.read_event_first();
-      data._fd_hw_instructions = _fd_hw_cpu_cycles_instr_group.read_event_second();
-      data._fd_hw_stalled_cycles_frontend = _fd_hw_cpu_cycles_instr_group.read_event_third();
-      data._fd_hw_stalled_cycles_backend = _fd_hw_cpu_cycles_instr_group.read_event_fourth();
+      data._fd_hw_cpu_cycles = _fd_hw_cpu_cycles_instr_group.read_event1();
+      data._fd_hw_instructions = _fd_hw_cpu_cycles_instr_group.read_event2();
+      data._fd_hw_stalled_cycles_frontend = _fd_hw_cpu_cycles_instr_group.read_event3();
+      data._fd_hw_stalled_cycles_backend = _fd_hw_cpu_cycles_instr_group.read_event4();
 
-      data._fd_hw_cache_references = _fd_hw_cache_references_misses_group.read_event_first();
-      data._fd_hw_cache_misses = _fd_hw_cache_references_misses_group.read_event_second();
-      data._fd_hw_branch_instructions = _fd_hw_branch_instructions_misses_group.read_event_first();
-      data._fd_hw_branch_misses = _fd_hw_branch_instructions_misses_group.read_event_second();
+      data._fd_hw_cache_references = _fd_hw_cache_references_misses_group.read_event1();
+      data._fd_hw_cache_misses = _fd_hw_cache_references_misses_group.read_event2();
+      data._fd_hw_branch_instructions = _fd_hw_branch_instructions_misses_group.read_event1();
+      data._fd_hw_branch_misses = _fd_hw_branch_instructions_misses_group.read_event2();
       return data;
     }
 
