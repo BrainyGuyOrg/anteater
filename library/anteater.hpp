@@ -11,7 +11,6 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <shared_mutex>
 #include <source_location>
 #include <sstream>
 #include <stack>
@@ -85,7 +84,7 @@ class LinuxEvent
 
   explicit LinuxEvent(const std::string_view name, const uint32_t event_type, const uint64_t event)
   {
-    _is_group = false;
+    _num_events = 1;
     _name_first = name;
     _fd_first = open_event(name, event_type, event, -1);
   }
@@ -93,7 +92,7 @@ class LinuxEvent
   explicit LinuxEvent(const std::string_view name1, const uint32_t event_type1, const uint64_t event1,
                       const std::string_view name2, const uint32_t event_type2, const uint64_t event2)
   {
-    _is_group = true;
+    _num_events = 2;
     _name_first = name1;
     _fd_first = open_event(name1, event_type1, event1, -1);
     _name_second = name2;
@@ -139,7 +138,7 @@ class LinuxEvent
   }
 
  private:
-    bool _is_group;
+    int _num_events;
     std::string_view _name_first;
     std::string_view _name_second;
     int _fd_first;
@@ -220,6 +219,22 @@ class LinuxEventsData
  public:
   explicit LinuxEventsData() = default;
 
+  void write_header(std::ostream& os) {
+    os << "CpuSec,TaskIdlePct,PageFaultMajorPerSec,";
+    os << "CyclesPerInstr,IssueStallPct,RetireStallPct,CacheMissPct,BranchMissPct";
+  }
+
+  void write_data(std::ostream& os) {
+    os << get_cpu_seconds() << ','
+       << get_task_idle_pct() << ','
+       << get_page_fault_major_per_sec() << ','
+       << get_cycles_per_instr() << ','
+       << get_issue_stall_pct() << ','
+       << get_retire_stall_pct() << ','
+       << get_cache_miss_pct() << ','
+       << get_branch_miss_pct();
+  }
+
   LinuxEventsData& operator+=(const LinuxEventsData& rhs)
   {
     _fd_sw_cpu_clock += rhs._fd_sw_cpu_clock;
@@ -233,12 +248,12 @@ class LinuxEventsData
     _fd_sw_emulation_faults += rhs._fd_sw_emulation_faults;
     _fd_hw_cpu_cycles += rhs._fd_hw_cpu_cycles;
     _fd_hw_instructions += rhs._fd_hw_instructions;
+    _fd_hw_stalled_cycles_frontend += rhs._fd_hw_stalled_cycles_frontend;
+    _fd_hw_stalled_cycles_backend += rhs._fd_hw_stalled_cycles_backend;
     _fd_hw_cache_references += rhs._fd_hw_cache_references;
     _fd_hw_cache_misses += rhs._fd_hw_cache_misses;
     _fd_hw_branch_instructions += rhs._fd_hw_branch_instructions;
     _fd_hw_branch_misses += rhs._fd_hw_branch_misses;
-    _fd_hw_stalled_cycles_frontend += rhs._fd_hw_stalled_cycles_frontend;
-    _fd_hw_stalled_cycles_backend += rhs._fd_hw_stalled_cycles_backend;
     return *this;
   }
 
@@ -261,12 +276,12 @@ class LinuxEventsData
     _fd_sw_emulation_faults -= rhs._fd_sw_emulation_faults;
     _fd_hw_cpu_cycles -= rhs._fd_hw_cpu_cycles;
     _fd_hw_instructions -= rhs._fd_hw_instructions;
+    _fd_hw_stalled_cycles_frontend -= rhs._fd_hw_stalled_cycles_frontend;
+    _fd_hw_stalled_cycles_backend -= rhs._fd_hw_stalled_cycles_backend;
     _fd_hw_cache_references -= rhs._fd_hw_cache_references;
     _fd_hw_cache_misses -= rhs._fd_hw_cache_misses;
     _fd_hw_branch_instructions -= rhs._fd_hw_branch_instructions;
     _fd_hw_branch_misses -= rhs._fd_hw_branch_misses;
-    _fd_hw_stalled_cycles_frontend -= rhs._fd_hw_stalled_cycles_frontend;
-    _fd_hw_stalled_cycles_backend -= rhs._fd_hw_stalled_cycles_backend;
     return *this;
   }
 
@@ -276,27 +291,59 @@ class LinuxEventsData
     return lhs;
   }
 
-  uint64_t _fd_sw_cpu_clock;         // This reports the CPU clock, a high-resolution per-CPU timer.
-  uint64_t _fd_sw_task_clock;        // This reports a clock count specific to the task that is running.
+  double get_cpu_seconds() {
+    return static_cast<double>(_fd_sw_cpu_clock) / 1'000'000'000.0;
+  }
+
+  double get_task_idle_pct() {
+    return 1.0 - (static_cast<double>(_fd_sw_task_clock) / static_cast<double>(_fd_sw_cpu_clock));
+  }
+
+  double get_page_fault_major_per_sec() {
+    return static_cast<double>(_fd_sw_page_faults_maj) / get_cpu_seconds();
+  }
+
+  double get_cycles_per_instr() {
+    return static_cast<double>(_fd_hw_cpu_cycles) / static_cast<double>(_fd_hw_instructions);
+  }
+
+  double get_issue_stall_pct() {
+    return static_cast<double>(_fd_hw_stalled_cycles_frontend) / static_cast<double>(_fd_hw_cpu_cycles);
+  }
+
+  double get_retire_stall_pct() {
+    return static_cast<double>(_fd_hw_stalled_cycles_backend) / static_cast<double>(_fd_hw_cpu_cycles);
+  }
+
+  double get_cache_miss_pct() {
+    return static_cast<double>(_fd_hw_cache_misses) / static_cast<double>(_fd_hw_cache_references);
+  }
+
+  double get_branch_miss_pct() {
+    return static_cast<double>(_fd_hw_branch_misses) / static_cast<double>(_fd_hw_branch_instructions);
+  }
+
+// ---------------------------------------------------------------------------
+  uint64_t _fd_sw_cpu_clock;         // This reports the CPU clock, a high-resolution per-CPU timer. (nanos)
+  uint64_t _fd_sw_task_clock;        // This reports a clock count specific to the task that is running. (nanos)
   uint64_t _fd_sw_page_faults;       // This reports the number of page faults.
   uint64_t _fd_sw_context_switches;  // This counts context switches.
   uint64_t _fd_sw_cpu_migrations;    // This reports the number of times the process has migrated to a new CPU.
   uint64_t _fd_sw_page_faults_min;   // This counts the number of minor page faults.
   uint64_t _fd_sw_page_faults_maj;   // This counts the number of major page faults. These required disk I/O to handle.
-  uint64_t _fd_sw_alignment_faults;  // This counts the number of alignment faults.
-  uint64_t _fd_sw_emulation_faults;  // This  counts the number of emulation faults.
+  uint64_t _fd_sw_alignment_faults;  // This counts the number of alignment faults. Zero on x86.
+  uint64_t _fd_sw_emulation_faults;  // This counts the number of emulation faults.
 
-  uint64_t _fd_hw_cpu_cycles;        // Total cycles.
-  uint64_t _fd_hw_instructions;      // Retired instructions.
+  uint64_t _fd_hw_cpu_cycles;               // Total cycles.
+  uint64_t _fd_hw_instructions;             // Retired instructions.
+  uint64_t _fd_hw_stalled_cycles_frontend;  // Stalled cycles during issue.
+  uint64_t _fd_hw_stalled_cycles_backend;   // Stalled cycles during retirement.
 
   uint64_t _fd_hw_cache_references;  // Cache accesses.  Usually this indicates Last Level Cache accesses.
   uint64_t _fd_hw_cache_misses;      // Cache misses.  Usually this indicates Last Level Cache misses.
 
   uint64_t _fd_hw_branch_instructions; // Retired branch instructions.
   uint64_t _fd_hw_branch_misses;       // Mispredicted branch instructions.
-
-  uint64_t _fd_hw_stalled_cycles_frontend; // Stalled cycles during issue.
-  uint64_t _fd_hw_stalled_cycles_backend;  // Stalled cycles during retirement.
 };
 
 // ---------------------------------------------------------------------------
@@ -324,7 +371,6 @@ class LinuxEvents
       _fd_hw_cpu_cycles_instr_group.enable_events();
       _fd_hw_cache_references_misses_group.enable_events();
       _fd_hw_branch_instructions_misses_group.enable_events();
-      _fd_hw_stalled_cycles_frontend_backend_group.enable_events();
     }
 
     LinuxEventsData get_snapshot()
@@ -342,12 +388,13 @@ class LinuxEvents
 
       data._fd_hw_cpu_cycles = _fd_hw_cpu_cycles_instr_group.read_event_first();
       data._fd_hw_instructions = _fd_hw_cpu_cycles_instr_group.read_event_second();
+      data._fd_hw_stalled_cycles_frontend = _fd_hw_cpu_cycles_instr_group.read_event_third();
+      data._fd_hw_stalled_cycles_backend = _fd_hw_cpu_cycles_instr_group.read_event_fourth();
+
       data._fd_hw_cache_references = _fd_hw_cache_references_misses_group.read_event_first();
       data._fd_hw_cache_misses = _fd_hw_cache_references_misses_group.read_event_second();
       data._fd_hw_branch_instructions = _fd_hw_branch_instructions_misses_group.read_event_first();
       data._fd_hw_branch_misses = _fd_hw_branch_instructions_misses_group.read_event_second();
-      data._fd_hw_stalled_cycles_frontend = _fd_hw_stalled_cycles_frontend_backend_group.read_event_first();
-      data._fd_hw_stalled_cycles_backend = _fd_hw_stalled_cycles_frontend_backend_group.read_event_second();
       return data;
     }
 
@@ -364,6 +411,8 @@ class LinuxEvents
 
     // Total cycles.
     // Retired instructions.
+    // Stalled cycles during issue.
+    // Stalled cycles during retirement.
     LinuxEvent _fd_hw_cpu_cycles_instr_group;
 
     // Cache accesses.  Usually this indicates Last Level Cache accesses.
@@ -373,10 +422,6 @@ class LinuxEvents
     // Retired branch instructions.
     // Mispredicted branch instructions.
     LinuxEvent _fd_hw_branch_instructions_misses_group;
-
-    // Stalled cycles during issue.
-    // Stalled cycles during retirement.
-    LinuxEvent _fd_hw_stalled_cycles_frontend_backend_group;
 
   void open_events() {
     _fd_sw_cpu_clock = LinuxEvent("PERF_COUNT_SW_CPU_CLOCK",
@@ -402,7 +447,12 @@ class LinuxEvents
         LinuxEvent("PERF_COUNT_HW_CPU_CYCLES",
                    PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES,
                    "PERF_COUNT_HW_INSTRUCTIONS",
-                   PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS);
+                   PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS,
+                   "PERF_COUNT_HW_STALLED_CYCLES_FRONTEND",
+                   PERF_TYPE_HARDWARE, PERF_COUNT_HW_STALLED_CYCLES_FRONTEND,
+                   "PERF_COUNT_HW_STALLED_CYCLES_BACKEND",
+                   PERF_TYPE_HARDWARE, PERF_COUNT_HW_STALLED_CYCLES_BACKEND);
+
     _fd_hw_cache_references_misses_group =
         LinuxEvent("PERF_COUNT_HW_CACHE_REFERENCES",
                    PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_REFERENCES,
@@ -413,11 +463,6 @@ class LinuxEvents
                    PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS,
                    "PERF_COUNT_HW_BRANCH_MISSES",
                    PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES);
-    _fd_hw_stalled_cycles_frontend_backend_group =
-        LinuxEvent("PERF_COUNT_HW_STALLED_CYCLES_FRONTEND",
-                   PERF_TYPE_HARDWARE, PERF_COUNT_HW_STALLED_CYCLES_FRONTEND,
-                   "PERF_COUNT_HW_STALLED_CYCLES_BACKEND",
-                   PERF_TYPE_HARDWARE, PERF_COUNT_HW_STALLED_CYCLES_BACKEND);
   }
 };
 
@@ -502,21 +547,52 @@ class Thread
 };
 
 // ---------------------------------------------------------------------------
-class ProfileRecord {
+class ProfileData {
  public:
-  explicit ProfileRecord(const std::string_view parent_function_signature,
+  explicit ProfileData(const std::string_view parent_function_signature,
                          const std::string_view function_signature)
                          :
                          _parent_function_signature(parent_function_signature),
-                         _function_signature(function_signature)
+                         _function_signature(function_signature),
+                         _function_calls(),
+                         _sum_of_count(),
+                         _linux_event_data()
   {
   }
 
-  ProfileRecord& operator+=(const ProfileRecord& rhs)
+  void write_header(std::ostream& os) {
+    os << "ParentFunction,Function,Calls,Count";
+    _linux_event_data.write_header(os);
+  }
+
+  void write_data(std::ostream& os) {
+
+  }
+
+  ProfileData& operator+=(const ProfileData& rhs)
   {
     _sum_of_count += rhs._sum_of_count;
     _linux_event_data += rhs._linux_event_data;
     return *this;
+  }
+
+  friend ProfileData operator+(ProfileData lhs, const ProfileData& rhs)
+  {
+    lhs += rhs;
+    return lhs;
+  }
+
+  ProfileData& operator-=(const ProfileData& rhs)
+  {
+    _sum_of_count -= rhs._sum_of_count;
+    _linux_event_data -= rhs._linux_event_data;
+    return *this;
+  }
+
+  friend ProfileData operator-(ProfileData lhs, const ProfileData& rhs)
+  {
+    lhs -= rhs;
+    return lhs;
   }
 
  private:
@@ -556,14 +632,16 @@ public:
   }
 
  private:
-  static std::unordered_map<std::pair<std::string_view,std::string_view>, ProfileRecord> _profile_map;
-  static std::shared_mutex _map_mutex;
+  static std::unordered_map<std::pair<std::string_view,std::string_view>, ProfileData> _profile_map;
+  static std::mutex _map_mutex;
 
   static thread_local inline std::stack<Function<build_mode>> _functions;
   static thread_local inline std::stack<std::string> _subsystems;
   static thread_local inline std::stack<std::string> _sessions;
 
-  static void upsert_profile_map(const ProfileRecord& profile_record) {
+  // all accesses require modifying data
+  // no advantage to use a readers-writer lock (a.k.a. shared_mutex)
+  static void upsert_profile_map(const ProfileData& profile_record) {
 
   }
 
@@ -583,7 +661,7 @@ public:
     }
   }
 
-  static
+
 };
 
   // std::unordered_map<pair, int, pair_hash> unordered_map
@@ -595,15 +673,12 @@ public:
 //                  << entry.second << std::endl;
 //    }
 
-}
-
 #endif // ANTEATER_ANTEATER_HPP
-
 
 // ---------------------------------------------------------------------------
 int test(const int instance)
 {
-  brainyguy::Function f{"test"};
+  brainyguy::Function g{"test", 123, "hello"};
   std::cerr << "inside test " << instance << std::endl;
   if (instance > 1) {
     test(instance-1);

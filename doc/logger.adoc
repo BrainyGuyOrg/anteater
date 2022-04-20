@@ -43,6 +43,13 @@ https://stackoverflow.com/questions/42088515/perf-event-open-how-to-monitoring-m
 == Perf Events
 https://web.eece.maine.edu/~vweaver/projects/perf_events/index.html
 man perf_event_open
+https://github.com/torvalds/linux/blob/master/tools/perf/design.txt
+
+==
+https://stackoverflow.com/questions/23965363/linux-perf-events-cpu-clock-and-task-clock-what-is-the-difference
+https://github.com/torvalds/linux/blob/master/kernel/events/core.c
+"Software event: cpu wall time clock"
+"Software event: task time clock"
 
 == NMI hardlock watchdog
 https://www.kernel.org/doc/html/latest/admin-guide/lockup-watchdogs.html
