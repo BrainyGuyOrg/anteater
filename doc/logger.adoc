@@ -350,3 +350,11 @@ https://github.com/SergiusTheBest/plog
 https://github.com/emilk/loguru
 https://logging.apache.org/log4cxx/latest_stable/
 https://github.com/google/glog
+
+== Robust Statistics
+https://en.wikipedia.org/wiki/Robust_statistics
+https://en.wikipedia.org/wiki/Median
+https://en.wikipedia.org/wiki/Median_absolute_deviation
+https://en.wikipedia.org/wiki/Interquartile_range
+https://en.wikipedia.org/wiki/Multivariate_statistics
+https://wis.kuleuven.be/stat/robust/papers/publications-1990/rousseeuwbassett-remedian-jasa-1990.pdf
