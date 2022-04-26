@@ -682,22 +682,20 @@ class Function {
   }
 
   void write_profile_map() {
-    // sort descending by
+    // sort descending by key
     std::multimap<double, ProfileKey, std::greater<>> sorted_profiles;
+    sorted_profiles.reserve (_profile_map.size());
 
+    // or sorted_profiles.copy(_profile_map.keys())
+    //    sorted_profiles.sort()
 
-    std::vector<double> keys;
-    keys.reserve (_profile_map.size());
-
-    for (const auto& it : _profile_map) {
-        keys.push_back(it.first);
-    }
-    std::sort (keys.begin(), keys.end());
-    for (auto& it : keys) {
-        std::cout << _profile_map[it] << ' ';
+    for (const auto& profile : _profile_map) {
+        sorted_profiles.push_back(profile.first);
     }
 
-
+    for (const auto& profile : sorted_profiles) {
+        // std::cout << _profile_map[profile] << ' ';
+    }
   }
 
   void check_create_program_thread() {

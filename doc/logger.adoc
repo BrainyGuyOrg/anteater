@@ -358,3 +358,38 @@ https://en.wikipedia.org/wiki/Median_absolute_deviation
 https://en.wikipedia.org/wiki/Interquartile_range
 https://en.wikipedia.org/wiki/Multivariate_statistics
 https://wis.kuleuven.be/stat/robust/papers/publications-1990/rousseeuwbassett-remedian-jasa-1990.pdf
+
+== Appliance Light Bulbs
+incandescent and LED bulbs
+similar price, lumens
+but LED last 8x longer - who would buy incandescent?
+also LED soft white or daylight
+for food or clothes, daylight is much better
+LED uses 5 watts vs 40 watts
+
+== Important Values
+- median (50 percentile)
+- 20 and 80 percentiles
+- mean = average of 20, 50, and 80 percentiles
+- 7 and 93 percentiles
+- standard deviation = (7 + 93 percentiles) / 3 (optimal)
+- +/- six sigma
+- minimum / maximum values
+- maximum sigma
+
+In performance analysis, it is better to make a false positive (type I error) which is then investigated and proven false (wasting time), than a false negative (type II error) which is not investigated, leaving an undiagnosed issue in the system, and more time wasted looking elsewhere.
+
+== Moments Sketch
+https://dawn.cs.stanford.edu/2018/08/29/moments/
+https://github.com/stanford-futuredata/msketch
+https://github.com/stanford-futuredata/momentsketch
+
+== Frequency Trails - outliers and modes
+https://www.brendangregg.com/frequencytrails.html
+https://www.slideshare.net/brendangregg/velocity-stoptheguessing2013
+https://stats.stackexchange.com/questions/176112/how-to-find-the-mode-of-a-probability-density-function
+
+mode  - the highest data peak
+mode2 - at least 75% of mode
+mode3 - at least 50% of mode
+mode4 - at least 25% of mode
