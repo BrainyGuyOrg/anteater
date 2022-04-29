@@ -393,3 +393,22 @@ mode  - the highest data peak
 mode2 - at least 75% of mode
 mode3 - at least 50% of mode
 mode4 - at least 25% of mode
+
+== Similar?
+https://github.com/dotnet/BenchmarkDotNet
+- uses mean and standard deviation
+- about microbenchmarking
+- similar to unit tests
+
+sigma3 - 99.7300204% of events, show as % distance from mode
+sigma6 - 99.9999998027% of events, show as % distance from mode
+
+== Outlier Detection
+https://en.wikipedia.org/wiki/Anomaly_detection
+https://en.wikipedia.org/wiki/Outlier
+https://en.wikipedia.org/wiki/Local_outlier_factor
+
+== Multi-Modes Detection
+https://aakinshin.net/posts/lowland-multimodality-detection/
+https://aakinshin.net/posts/qrde-hd/
+https://www.brendangregg.com/FrequencyTrails/modes.html
